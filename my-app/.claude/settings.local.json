@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(dir \"C:\\\\Users\\\\PC\\\\Documents\\\\SmartAlert\\\\my-app\")",
+      "Read(//c/Users/PC/Documents/SmartAlert//**)",
+      "Read(//c/Users/PC/Documents/SmartAlert/**)",
+      "Skill(update-config)"
+    ]
+  },
+  "enabledMcpjsonServers": ["claude_design"]
+}
