@@ -1,0 +1,108 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+:root {
+  /* Brand */
+  --brand: oklch(0.55 0.16 41);
+  --brand-hover: oklch(0.43 0.15 41);
+  --brand-tint: oklch(0.94 0.03 50);
+
+  /* Surfaces */
+  --background: oklch(0.955 0.012 83);
+  --paper: oklch(0.99 0.007 83);
+  --sidebar-bg: oklch(0.985 0.008 83);
+  --dark-panel: oklch(0.26 0.02 52);
+
+  /* Ink / Text */
+  --ink: oklch(0.24 0.014 55);
+  --ink-2: oklch(0.46 0.012 55);
+  --ink-3: oklch(0.5 0.012 55);
+  --ink-4: oklch(0.6 0.01 55);
+  --ink-5: oklch(0.66 0.01 55);
+
+  /* Borders */
+  --border: oklch(0.86 0.014 78);
+  --border-2: oklch(0.88 0.014 80);
+  --border-3: oklch(0.84 0.014 78);
+  --row-divider: oklch(0.9 0.012 80);
+
+  /* Status */
+  --status-live: oklch(0.55 0.13 152);
+  --status-live-pulse: oklch(0.68 0.14 152);
+  --status-moved: oklch(0.58 0.14 64);
+  --status-cancelled: oklch(0.55 0.2 27);
+  --status-done: oklch(0.62 0.01 55);
+  --status-scheduled: oklch(0.5 0.012 55);
+}
+
+@theme inline {
+  --font-sans: var(--font-space-grotesk);
+  --font-mono: var(--font-ibm-plex-mono);
+
+  --color-background: var(--background);
+  --color-paper: var(--paper);
+  --color-sidebar: var(--sidebar-bg);
+  --color-dark-panel: var(--dark-panel);
+
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-tint: var(--brand-tint);
+
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-ink-4: var(--ink-4);
+  --color-ink-5: var(--ink-5);
+
+  --color-border: var(--border);
+  --color-border-2: var(--border-2);
+  --color-border-3: var(--border-3);
+  --color-row-divider: var(--row-divider);
+
+  --color-live: var(--status-live);
+  --color-moved: var(--status-moved);
+  --color-cancelled: var(--status-cancelled);
+  --color-done: var(--status-done);
+  --color-scheduled: var(--status-scheduled);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--background);
+  color: var(--ink);
+  font-family: var(--font-space-grotesk), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@keyframes saPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+@keyframes saPop {
+  from { transform: scale(0.97); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes saToastIn {
+  from { transform: translateY(-14px) translateX(-50%); opacity: 0; }
+  to { transform: translateY(0) translateX(-50%); opacity: 1; }
+}
+
+.sa-pulse {
+  animation: saPulse 1.6s ease-in-out infinite;
+}
+
+.sa-pop {
+  animation: saPop 0.2s ease;
+}
+
+.sa-toast-in {
+  animation: saToastIn 0.32s ease forwards;
+}
