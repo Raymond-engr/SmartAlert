@@ -46,7 +46,7 @@ export default function EnrollPage() {
   }
 
   return (
-    <div style={{ padding: "28px 32px", maxWidth: 760 }}>
+    <div style={{ maxWidth: 760 }} className="px-4 py-6 lg:px-8 lg:py-7">
       <h1
         style={{
           fontSize: 23,

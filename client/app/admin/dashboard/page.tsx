@@ -91,7 +91,7 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div style={{ padding: "28px 32px" }}>
+    <div className="px-4 py-6 lg:px-8 lg:py-7">
       {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24, gap: 16 }}>
         <div>

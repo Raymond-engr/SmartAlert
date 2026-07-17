@@ -27,7 +27,7 @@ export default function AdminSettings() {
   }
 
   return (
-    <div style={{ padding: "28px 32px", maxWidth: 560, display: "flex", flexDirection: "column", gap: 22 }}>
+    <div style={{ maxWidth: 560, display: "flex", flexDirection: "column", gap: 22 }} className="px-4 py-6 lg:px-8 lg:py-7">
       <div>
         <h1 style={{ fontSize: 23, fontWeight: 600, letterSpacing: "-0.02em", color: "oklch(0.24 0.014 55)", marginBottom: 4 }}>
           Settings

@@ -30,7 +30,7 @@ export default function StudentSettings() {
   }
 
   return (
-    <div style={{ padding: "28px 32px", maxWidth: 560, display: "flex", flexDirection: "column", gap: 22 }}>
+    <div style={{ maxWidth: 560, display: "flex", flexDirection: "column", gap: 22 }} className="px-4 py-6 lg:px-8 lg:py-7">
       <div>
         <h1
           style={{

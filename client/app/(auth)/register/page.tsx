@@ -73,7 +73,6 @@ export default function RegisterPage() {
           backgroundImage:
             "repeating-linear-gradient(0deg, oklch(0.93 0.012 83 / 0.045) 0 1px, transparent 1px 34px), repeating-linear-gradient(90deg, oklch(0.93 0.012 83 / 0.05) 0 1px, transparent 1px 34px)",
           padding: "32px 36px",
-          display: "flex",
           flexDirection: "column",
         }}
         className="hidden md:flex"
@@ -162,7 +161,6 @@ export default function RegisterPage() {
       >
         <div
           style={{
-            display: "flex",
             alignItems: "center",
             gap: 9,
             marginBottom: 28,

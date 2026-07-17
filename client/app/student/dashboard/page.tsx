@@ -62,7 +62,7 @@ export default function StudentDashboard() {
   if (!user) return null;
 
   return (
-    <div style={{ padding: "28px 32px" }}>
+    <div className="px-4 py-6 lg:px-8 lg:py-7">
       {/* Header */}
       <div
         style={{
@@ -103,13 +103,11 @@ export default function StudentDashboard() {
         </Button>
       </div>
 
-      {/* Two-column grid */}
+      {/* Two columns on the desktop frame, stacked below it. The columns are
+          a utility class rather than an inline style, which would outrank it. */}
       <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 320px",
-          gap: 28,
-        }}
+        style={{ gap: 28 }}
+        className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px]"
       >
         {/* Left column */}
         <div style={{ display: "flex", flexDirection: "column", gap: 24, minWidth: 0 }}>
