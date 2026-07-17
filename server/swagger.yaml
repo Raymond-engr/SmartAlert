@@ -1,0 +1,422 @@
+openapi: 3.0.0
+info:
+  title: SmartAlert API
+  description: |
+    Lecture timetable and real-time class alert system for the
+    Department of Computer Science, University of Benin.
+  version: 1.0.0
+  contact:
+    name: SmartAlert
+    email: support@smartalert.example
+
+servers:
+  - url: 'http://localhost:4000/api/v1'
+    description: Local development
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      description: Flattened, client-facing shape (see toUser serializer).
+      properties:
+        id: { type: string }
+        name: { type: string }
+        firstName: { type: string }
+        initials: { type: string }
+        email: { type: string, format: email }
+        role: { type: string, enum: [student, lecturer, admin] }
+        department: { type: string }
+        matricNumber: { type: string }
+        isActive: { type: boolean }
+
+    Course:
+      type: object
+      description: Flattened, client-facing shape (see toCourse serializer).
+      properties:
+        id: { type: string }
+        code: { type: string, example: 'CSC 401' }
+        title: { type: string, example: 'Distributed Systems' }
+        lecturer: { type: string, description: 'Lecturer display name' }
+        department: { type: string }
+        units: { type: integer, example: 3 }
+        enrolled:
+          type: boolean
+          description: Only meaningful for the calling student; false otherwise.
+
+    Session:
+      type: object
+      description: Flattened, client-facing shape (see toSession serializer).
+      properties:
+        id: { type: string }
+        courseId: { type: string }
+        courseCode: { type: string }
+        courseName: { type: string }
+        day:
+          type: string
+          enum: [Monday, Tuesday, Wednesday, Thursday, Friday, Saturday]
+        startTime: { type: string, example: '10:00' }
+        endTime: { type: string, example: '12:00' }
+        venue: { type: string }
+        status:
+          type: string
+          enum: [scheduled, ongoing, rescheduled, cancelled, completed]
+          description: >
+            ongoing/completed are derived from the clock at read time;
+            cancelled/rescheduled are stored lecturer actions and always win.
+        lecturer: { type: string, description: 'Lecturer display name' }
+        canAct:
+          type: boolean
+          description: True only for the owning lecturer, while the session is still actionable.
+
+    Alert:
+      type: object
+      description: Flattened, client-facing shape (see toAlert serializer).
+      properties:
+        id: { type: string }
+        courseCode: { type: string }
+        courseName: { type: string }
+        status:
+          type: string
+          enum: [cancelled, rescheduled]
+        message: { type: string }
+        createdAt: { type: string, format: date-time }
+        unread: { type: boolean }
+
+    CourseInput:
+      type: object
+      description: Request body for creating/editing a course.
+      properties:
+        code: { type: string, example: 'CSC 401' }
+        name: { type: string, example: 'Distributed Systems' }
+        department: { type: string }
+        units: { type: integer, example: 3 }
+        lecturer: { type: string, description: 'Lecturer user id' }
+
+    SessionInput:
+      type: object
+      description: Request body for adding a session to the master schedule.
+      properties:
+        course: { type: string, description: 'Course id' }
+        day:
+          type: string
+          enum: [Monday, Tuesday, Wednesday, Thursday, Friday, Saturday]
+        startTime: { type: string, example: '10:00' }
+        endTime: { type: string, example: '12:00' }
+        venue: { type: string }
+
+    ApiResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+        data: {}
+
+security:
+  - BearerAuth: []
+
+paths:
+  /auth/register:
+    post:
+      summary: Register a student or lecturer account
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password, role, department]
+              properties:
+                name: { type: string }
+                email: { type: string }
+                password: { type: string, minLength: 8 }
+                role: { type: string, enum: [student, lecturer] }
+                department: { type: string }
+                matricNumber: { type: string }
+      responses:
+        '201':
+          description: Account created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiResponse' }
+        '400':
+          description: Invalid department or admin role requested
+        '409':
+          description: Email already in use
+
+  /auth/login:
+    post:
+      summary: Log in as any role
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string }
+                password: { type: string }
+      responses:
+        '200':
+          description: Login successful, access token returned
+        '401':
+          description: Invalid credentials or inactive account
+
+  /auth/refresh-token:
+    post:
+      summary: Rotate the refresh token cookie for a new access token
+      security: []
+      responses:
+        '200':
+          description: New access token issued
+        '401':
+          description: Missing, invalid, or blacklisted refresh token
+
+  /auth/logout:
+    post:
+      summary: Blacklist the refresh token and clear the cookie
+      security: []
+      responses:
+        '200':
+          description: Logged out
+
+  /auth/verify-token:
+    get:
+      summary: Verify the current access token
+      responses:
+        '200':
+          description: Token is valid
+
+  /auth/me:
+    get:
+      summary: Get the logged-in user's profile
+      responses:
+        '200':
+          description: Profile returned
+    patch:
+      summary: Edit the logged-in user's profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                department: { type: string }
+                matricNumber: { type: string }
+                password: { type: string, minLength: 8 }
+      responses:
+        '200':
+          description: Profile updated
+
+  /courses:
+    get:
+      summary: List/search courses
+      parameters:
+        - in: query
+          name: search
+          schema: { type: string }
+        - in: query
+          name: department
+          schema: { type: string }
+      responses:
+        '200':
+          description: Course list
+    post:
+      summary: Create a course (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CourseInput' }
+      responses:
+        '201':
+          description: Course created
+        '403':
+          description: Admin only
+
+  /courses/{id}:
+    put:
+      summary: Edit a course (admin)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Course updated
+    delete:
+      summary: Delete a course (admin)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Course deleted
+
+  /sessions:
+    get:
+      summary: List sessions (scoped by role - own for lecturer, enrolled for student, all for admin)
+      responses:
+        '200':
+          description: Session list
+    post:
+      summary: Add a session to the master schedule (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SessionInput' }
+      responses:
+        '201':
+          description: Session added
+
+  /sessions/{id}/cancel:
+    patch:
+      summary: Cancel a session (lecturer, owner only) - triggers the dual-channel alert
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Session cancelled and students notified
+        '403':
+          description: Not the lecturer for this course
+
+  /sessions/{id}/reschedule:
+    patch:
+      summary: Reschedule a session (lecturer, owner only) - triggers the dual-channel alert
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [day, startTime, endTime, venue]
+              properties:
+                day: { type: string }
+                startTime: { type: string }
+                endTime: { type: string }
+                venue: { type: string }
+      responses:
+        '200':
+          description: Session rescheduled and students notified
+
+  /enrolments/me:
+    get:
+      summary: List the logged-in student's enrolled courses
+      responses:
+        '200':
+          description: 'Enrolment list: data is [{ id, course: Course }]'
+
+  /enrolments:
+    post:
+      summary: Enrol in a course (student)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [courseId]
+              properties:
+                courseId: { type: string }
+      responses:
+        '201':
+          description: 'Enrolled; data is { id, course: Course }'
+        '409':
+          description: Already enrolled in this course
+
+  /enrolments/{id}:
+    delete:
+      summary: Unenrol from a course (student) - takes the enrolment id, not the course id
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Unenrolled
+        '404':
+          description: Enrolment not found
+
+  /notifications/me:
+    get:
+      summary: Notification history for the logged-in student
+      responses:
+        '200':
+          description: Notification history
+
+  /notifications/me/unread-count:
+    get:
+      summary: Unread alert count for the logged-in student
+      responses:
+        '200':
+          description: 'data is { count }'
+
+  /notifications/{id}/read:
+    patch:
+      summary: Mark a single notification read for the logged-in student
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: 'Notification marked read; data is the updated Alert'
+        '404':
+          description: Notification not found
+
+  /notifications/read-all:
+    patch:
+      summary: Mark every notification read for the logged-in student
+      responses:
+        '200':
+          description: 'data is { updated }'
+
+  /admin/users:
+    get:
+      summary: List/manage all users (admin)
+      responses:
+        '200':
+          description: User list
+
+  /admin/users/{id}:
+    patch:
+      summary: Edit or deactivate a user (admin)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: User updated
+
+  /admin/departments:
+    get:
+      summary: Faculty/department reference data (admin)
+      responses:
+        '200':
+          description: Department list
