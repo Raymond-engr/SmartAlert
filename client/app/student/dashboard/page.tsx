@@ -1,142 +1,28 @@
 "use client";
 
-import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { StatusChip } from "@/components/StatusChip";
-import { getStatusColor } from "@/lib/utils";
-import type { Session, Alert } from "@/types";
+import {
+  getStatusColor,
+  getSessionNote,
+  formatAlertTime,
+  formatToday,
+  greeting,
+} from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
+import { useSessions } from "@/hooks/useSessions";
+import { useNotifications } from "@/hooks/useNotifications";
 
-const TODAY_SESSIONS: Session[] = [
-  {
-    id: "1",
-    courseCode: "CSC 305",
-    courseName: "Database Systems",
-    day: "Monday",
-    startTime: "08:00",
-    endTime: "10:00",
-    venue: "LT3",
-    status: "done",
-    note: "Done · LT3",
-  },
-  {
-    id: "2",
-    courseCode: "CSC 401",
-    courseName: "Software Engineering",
-    day: "Monday",
-    startTime: "10:00",
-    endTime: "12:00",
-    venue: "LT1",
-    status: "live",
-    lecturer: "Dr. Okoro",
-    note: "In progress · LT1",
-  },
-  {
-    id: "3",
-    courseCode: "MTH 301",
-    courseName: "Calculus III",
-    day: "Monday",
-    startTime: "12:00",
-    endTime: "14:00",
-    venue: "LH2",
-    status: "moved",
-    note: "Now 14:00–16:00 · LH2",
-  },
-  {
-    id: "4",
-    courseCode: "CSC 403",
-    courseName: "Operating Systems",
-    day: "Monday",
-    startTime: "14:00",
-    endTime: "16:00",
-    venue: "LT2",
-    status: "cancelled",
-    note: "Cancelled · LT2",
-  },
-  {
-    id: "5",
-    courseCode: "CSC 407",
-    courseName: "Computer Networks",
-    day: "Monday",
-    startTime: "16:00",
-    endTime: "18:00",
-    venue: "LT1",
-    status: "scheduled",
-  },
-];
-
-const WEEK_SESSIONS = [
-  {
-    day: "MON",
-    isToday: true,
-    items: [
-      { code: "CSC 305", time: "08:00–10:00", name: "Database Systems", status: "done" as const },
-      { code: "CSC 401", time: "10:00–12:00", name: "Software Engineering", status: "live" as const },
-      { code: "CSC 403", time: "14:00–16:00", name: "Operating Systems", status: "cancelled" as const },
-    ],
-  },
-  {
-    day: "TUE",
-    isToday: false,
-    items: [
-      { code: "MTH 301", time: "10:00–12:00", name: "Calculus III", status: "scheduled" as const },
-      { code: "CSC 407", time: "14:00–16:00", name: "Computer Networks", status: "scheduled" as const },
-    ],
-  },
-  {
-    day: "WED",
-    isToday: false,
-    items: [
-      { code: "CSC 401", time: "10:00–12:00", name: "Software Engineering", status: "scheduled" as const },
-      { code: "CSC 305", time: "14:00–16:00", name: "Database Systems", status: "scheduled" as const },
-    ],
-  },
-  {
-    day: "THU",
-    isToday: false,
-    items: [
-      { code: "MTH 301", time: "08:00–10:00", name: "Calculus III", status: "scheduled" as const },
-    ],
-  },
-  {
-    day: "FRI",
-    isToday: false,
-    items: [
-      { code: "CSC 407", time: "10:00–12:00", name: "Computer Networks", status: "scheduled" as const },
-      { code: "CSC 409", time: "14:00–16:00", name: "Machine Learning", status: "scheduled" as const },
-    ],
-  },
-];
-
-const LIVE_ALERTS: Alert[] = [
-  {
-    id: "1",
-    courseCode: "CSC 403",
-    courseName: "Operating Systems",
-    status: "cancelled",
-    message: "Today's session has been cancelled. Dr. Adama is unavailable.",
-    timestamp: "12:35",
-    unread: true,
-  },
-  {
-    id: "2",
-    courseCode: "MTH 301",
-    courseName: "Calculus III",
-    status: "moved",
-    message: "Session rescheduled to 14:00–16:00 in LH2. Same venue.",
-    timestamp: "11:45",
-    unread: true,
-  },
-  {
-    id: "3",
-    courseCode: "CSC 401",
-    courseName: "Software Engineering",
-    status: "live",
-    message: "Session is now in progress in LT1. Join now.",
-    timestamp: "10:03",
-    unread: false,
-  },
-];
+const DAY_ROWS = ["MON", "TUE", "WED", "THU", "FRI", "SAT"] as const;
+const DAY_NAME_BY_ROW: Record<(typeof DAY_ROWS)[number], string> = {
+  MON: "Monday",
+  TUE: "Tuesday",
+  WED: "Wednesday",
+  THU: "Thursday",
+  FRI: "Friday",
+  SAT: "Saturday",
+};
 
 const PANEL_STYLE = {
   background: "oklch(0.99 0.007 83)",
@@ -146,6 +32,35 @@ const PANEL_STYLE = {
 };
 
 export default function StudentDashboard() {
+  const { user } = useAuth();
+  const { sessions } = useSessions();
+  const { alerts } = useNotifications();
+
+  const todayName = new Date().toLocaleDateString("en-US", { weekday: "long" });
+
+  const todaySessions = sessions
+    .filter((s) => s.day === todayName)
+    .sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+  const weekRows = DAY_ROWS.map((row) => {
+    const dayName = DAY_NAME_BY_ROW[row];
+    const items = sessions
+      .filter((s) => s.day === dayName)
+      .sort((a, b) => a.startTime.localeCompare(b.startTime));
+    return { day: row, isToday: dayName === todayName, items };
+  }).filter((row) => row.day !== "SAT" || row.items.length > 0);
+
+  const ongoing = todaySessions.find((s) => s.status === "ongoing");
+  const now = new Date().toTimeString().slice(0, 5);
+  const upNext = ongoing
+    ? undefined
+    : todaySessions.find((s) => s.startTime > now);
+  const happening = ongoing ?? upNext;
+
+  const liveAlerts = alerts.slice(0, 3);
+
+  if (!user) return null;
+
   return (
     <div style={{ padding: "28px 32px" }}>
       {/* Header */}
@@ -169,7 +84,7 @@ export default function StudentDashboard() {
               marginBottom: 4,
             }}
           >
-            Monday, 14 July 2026
+            {formatToday()}
           </p>
           <h1
             style={{
@@ -180,7 +95,7 @@ export default function StudentDashboard() {
               margin: "4px 0",
             }}
           >
-            Good morning, Harriet
+            {greeting()}, {user.firstName}
           </h1>
         </div>
         <Button variant="primary" size="default" asChild>
@@ -218,7 +133,7 @@ export default function StudentDashboard() {
               }}
             >
               <span
-                className="sa-pulse"
+                className={ongoing ? "sa-pulse" : undefined}
                 style={{
                   width: 6,
                   height: 6,
@@ -237,37 +152,52 @@ export default function StudentDashboard() {
                   color: "oklch(0.72 0.13 152)",
                 }}
               >
-                Happening Now
+                {ongoing ? "Happening Now" : "Up Next"}
               </span>
             </div>
-            <p
-              style={{
-                fontFamily: "var(--font-ibm-plex-mono), monospace",
-                fontSize: 12,
-                color: "oklch(0.82 0.012 83 / 0.8)",
-                marginBottom: 4,
-              }}
-            >
-              CSC 401 · 10:00–12:00
-            </p>
-            <h2
-              style={{
-                fontSize: 22,
-                fontWeight: 600,
-                letterSpacing: "-0.01em",
-                marginBottom: 6,
-              }}
-            >
-              Software Engineering
-            </h2>
-            <p
-              style={{
-                fontSize: 13,
-                color: "oklch(0.82 0.012 83 / 0.72)",
-              }}
-            >
-              LT1 · Dr. Emmanuel Okoro
-            </p>
+            {happening ? (
+              <>
+                <p
+                  style={{
+                    fontFamily: "var(--font-ibm-plex-mono), monospace",
+                    fontSize: 12,
+                    color: "oklch(0.82 0.012 83 / 0.8)",
+                    marginBottom: 4,
+                  }}
+                >
+                  {happening.courseCode} · {happening.startTime}–{happening.endTime}
+                </p>
+                <h2
+                  style={{
+                    fontSize: 22,
+                    fontWeight: 600,
+                    letterSpacing: "-0.01em",
+                    marginBottom: 6,
+                  }}
+                >
+                  {happening.courseName}
+                </h2>
+                <p
+                  style={{
+                    fontSize: 13,
+                    color: "oklch(0.82 0.012 83 / 0.72)",
+                  }}
+                >
+                  {happening.venue}
+                  {happening.lecturer ? ` · ${happening.lecturer}` : ""}
+                </p>
+              </>
+            ) : (
+              <h2
+                style={{
+                  fontSize: 22,
+                  fontWeight: 600,
+                  letterSpacing: "-0.01em",
+                }}
+              >
+                No classes right now
+              </h2>
+            )}
           </div>
 
           {/* Today's classes */}
@@ -297,13 +227,14 @@ export default function StudentDashboard() {
                   color: "oklch(0.6 0.01 55)",
                 }}
               >
-                {TODAY_SESSIONS.length} sessions
+                {todaySessions.length} sessions
               </span>
             </div>
             <div style={PANEL_STYLE}>
-              {TODAY_SESSIONS.map((s, i) => {
+              {todaySessions.map((s, i) => {
                 const isCancelled = s.status === "cancelled";
                 const color = getStatusColor(s.status);
+                const note = getSessionNote(s);
                 return (
                   <div
                     key={s.id}
@@ -313,7 +244,7 @@ export default function StudentDashboard() {
                       gap: 15,
                       padding: "14px 16px",
                       borderBottom:
-                        i < TODAY_SESSIONS.length - 1
+                        i < todaySessions.length - 1
                           ? "1px solid oklch(0.9 0.012 80)"
                           : "none",
                     }}
@@ -399,14 +330,14 @@ export default function StudentDashboard() {
                       >
                         {s.courseName}
                       </p>
-                      {s.note && (
+                      {note && (
                         <p
                           style={{
                             fontSize: 12,
                             color: "oklch(0.55 0.012 55)",
                           }}
                         >
-                          {s.note}
+                          {note}
                         </p>
                       )}
                     </div>
@@ -430,13 +361,13 @@ export default function StudentDashboard() {
               This week
             </h2>
             <div style={PANEL_STYLE}>
-              {WEEK_SESSIONS.map((row, ri) => (
+              {weekRows.map((row, ri) => (
                 <div
                   key={row.day}
                   style={{
                     display: "flex",
                     borderBottom:
-                      ri < WEEK_SESSIONS.length - 1
+                      ri < weekRows.length - 1
                         ? "1px solid oklch(0.9 0.012 80)"
                         : "none",
                   }}
@@ -471,7 +402,7 @@ export default function StudentDashboard() {
                   >
                     {row.items.map((item) => (
                       <div
-                        key={item.code + item.time}
+                        key={item.id}
                         style={{
                           display: "flex",
                           alignItems: "center",
@@ -496,7 +427,7 @@ export default function StudentDashboard() {
                             flexShrink: 0,
                           }}
                         >
-                          {item.time}
+                          {item.startTime}–{item.endTime}
                         </span>
                         <span
                           style={{
@@ -508,7 +439,7 @@ export default function StudentDashboard() {
                             flexShrink: 0,
                           }}
                         >
-                          {item.code}
+                          {item.courseCode}
                         </span>
                         <span
                           style={{
@@ -520,7 +451,7 @@ export default function StudentDashboard() {
                             whiteSpace: "nowrap",
                           }}
                         >
-                          {item.name}
+                          {item.courseName}
                         </span>
                         <StatusChip status={item.status} />
                       </div>
@@ -578,13 +509,13 @@ export default function StudentDashboard() {
           </div>
 
           <div style={PANEL_STYLE}>
-            {LIVE_ALERTS.map((alert, i) => (
+            {liveAlerts.map((alert, i) => (
               <div
                 key={alert.id}
                 style={{
                   padding: "13px 15px",
                   borderBottom:
-                    i < LIVE_ALERTS.length - 1
+                    i < liveAlerts.length - 1
                       ? "1px solid oklch(0.9 0.012 80)"
                       : "none",
                   background: alert.unread
@@ -628,7 +559,7 @@ export default function StudentDashboard() {
                       marginLeft: "auto",
                     }}
                   >
-                    {alert.timestamp}
+                    {formatAlertTime(alert.createdAt)}
                   </span>
                 </div>
                 <p

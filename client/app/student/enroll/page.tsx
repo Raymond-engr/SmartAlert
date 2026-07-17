@@ -3,28 +3,23 @@
 import { useState, useMemo } from "react";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { Course } from "@/types";
-
-const ALL_COURSES: Course[] = [
-  { id: "1", code: "CSC 401", title: "Software Engineering", lecturer: "Dr. Emmanuel Okoro", units: 3, enrolled: true },
-  { id: "2", code: "CSC 305", title: "Database Systems", lecturer: "Dr. John Bello", units: 3, enrolled: true },
-  { id: "3", code: "CSC 403", title: "Operating Systems", lecturer: "Dr. Faith Adama", units: 3, enrolled: true },
-  { id: "4", code: "MTH 301", title: "Calculus III", lecturer: "Dr. Joseph Ihejiahi", units: 4, enrolled: true },
-  { id: "5", code: "CSC 407", title: "Computer Networks", lecturer: "Dr. Chima Eze", units: 3, enrolled: false },
-  { id: "6", code: "CSC 409", title: "Machine Learning", lecturer: "Dr. Ngozi Nwachukwu", units: 3, enrolled: false },
-  { id: "7", code: "CSC 411", title: "Software Testing & QA", lecturer: "Dr. Emeka Okutu", units: 2, enrolled: false },
-  { id: "8", code: "PHY 305", title: "Electronics", lecturer: "Dr. Amaka Osei", units: 3, enrolled: false },
-];
+import { useCourses } from "@/hooks/useCourses";
+import { useEnrolments } from "@/hooks/useEnrolments";
 
 export default function EnrollPage() {
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<"all" | "mine">("all");
-  const [enrolled, setEnrolled] = useState<Set<string>>(
-    new Set(ALL_COURSES.filter((c) => c.enrolled).map((c) => c.id))
+  const { courses } = useCourses(search);
+  const { enrolments, enrol, unenrol } = useEnrolments();
+  const [pending, setPending] = useState<Set<string>>(new Set());
+
+  const enrolled = useMemo(
+    () => new Set(enrolments.map((e) => e.course.id)),
+    [enrolments]
   );
 
   const filtered = useMemo(() => {
-    let list = ALL_COURSES;
+    let list = courses;
     if (tab === "mine") list = list.filter((c) => enrolled.has(c.id));
     if (search.trim())
       list = list.filter(
@@ -34,15 +29,20 @@ export default function EnrollPage() {
           c.lecturer.toLowerCase().includes(search.toLowerCase())
       );
     return list;
-  }, [search, tab, enrolled]);
+  }, [courses, search, tab, enrolled]);
 
-  function toggleEnroll(id: string) {
-    setEnrolled((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  async function toggleEnroll(id: string) {
+    setPending((prev) => new Set(prev).add(id));
+    try {
+      if (enrolled.has(id)) await unenrol(id);
+      else await enrol(id);
+    } finally {
+      setPending((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
   }
 
   return (
@@ -226,6 +226,7 @@ export default function EnrollPage() {
               {enrolled.has(course.id) ? (
                 <button
                   onClick={() => toggleEnroll(course.id)}
+                  disabled={pending.has(course.id)}
                   style={{
                     fontFamily: "var(--font-ibm-plex-mono), monospace",
                     fontSize: 12,
@@ -247,6 +248,7 @@ export default function EnrollPage() {
                   variant="primary"
                   size="sm"
                   onClick={() => toggleEnroll(course.id)}
+                  disabled={pending.has(course.id)}
                 >
                   Enrol
                 </Button>

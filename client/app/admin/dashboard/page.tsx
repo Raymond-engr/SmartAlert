@@ -1,45 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { StatusChip } from "@/components/StatusChip";
-import { getStatusColor } from "@/lib/utils";
-import type { AdminUser, Department, Course, ScheduleEntry } from "@/types";
+import { api } from "@/lib/api";
+import { useSessions } from "@/hooks/useSessions";
+import { useCourses } from "@/hooks/useCourses";
+import type { AppUser, Department } from "@/types";
 
-const USERS: AdminUser[] = [
-  { id: "1", name: "Harriet Samuel", initials: "HS", email: "harriet@student.uniben.edu.ng", role: "student", active: true },
-  { id: "2", name: "Emmanuel Okoro", initials: "EO", email: "emmanuel@uniben.edu.ng", role: "lecturer", active: true },
-  { id: "3", name: "Sarah Adeola", initials: "SA", email: "sarah@uniben.edu.ng", role: "admin", active: true },
-  { id: "4", name: "Amaka Eze", initials: "AE", email: "amaka@student.uniben.edu.ng", role: "student", active: false },
-  { id: "5", name: "John Bello", initials: "JB", email: "john@uniben.edu.ng", role: "lecturer", active: true },
-];
-
-const DEPARTMENTS: Department[] = [
-  { id: "1", name: "Computer Science", code: "CSC", courses: 12, students: 450 },
-  { id: "2", name: "Mathematics", code: "MTH", courses: 8, students: 380 },
-  { id: "3", name: "Physics", code: "PHY", courses: 10, students: 290 },
-  { id: "4", name: "Chemistry", code: "CHM", courses: 9, students: 310 },
-];
-
-const COURSES: Course[] = [
-  { id: "1", code: "CSC 401", title: "Software Engineering", lecturer: "Dr. Emmanuel Okoro", units: 3 },
-  { id: "2", code: "CSC 305", title: "Database Systems", lecturer: "Dr. John Bello", units: 3 },
-  { id: "3", code: "MTH 301", title: "Calculus III", lecturer: "Dr. Joseph Ihejiahi", units: 4 },
-  { id: "4", code: "CSC 403", title: "Operating Systems", lecturer: "Dr. Faith Adama", units: 3 },
-  { id: "5", code: "CSC 407", title: "Computer Networks", lecturer: "Dr. Chima Eze", units: 3 },
-  { id: "6", code: "CSC 409", title: "Machine Learning", lecturer: "Dr. Ngozi Nwachukwu", units: 3 },
-];
-
-const SCHEDULE: ScheduleEntry[] = [
-  { id: "1", courseCode: "CSC 401", courseName: "Software Engineering", day: "Monday", time: "10:00–12:00", venue: "LT1", status: "live" },
-  { id: "2", courseCode: "CSC 305", courseName: "Database Systems", day: "Monday", time: "08:00–10:00", venue: "LT3", status: "done" },
-  { id: "3", courseCode: "MTH 301", courseName: "Calculus III", day: "Tuesday", time: "10:00–12:00", venue: "LH2", status: "moved" },
-  { id: "4", courseCode: "CSC 403", courseName: "Operating Systems", day: "Monday", time: "14:00–16:00", venue: "LT2", status: "cancelled" },
-  { id: "5", courseCode: "CSC 407", courseName: "Computer Networks", day: "Tuesday", time: "14:00–16:00", venue: "LT1", status: "scheduled" },
-  { id: "6", courseCode: "CSC 409", courseName: "Machine Learning", day: "Wednesday", time: "08:00–10:00", venue: "LT1", status: "scheduled" },
-];
+interface DepartmentRef {
+  id: string;
+  name: string;
+  code: string;
+}
 
 const ROLE_COLORS: Record<string, string> = {
   admin: "oklch(0.55 0.16 41)",
@@ -75,6 +50,46 @@ const TABLE: React.CSSProperties = {
 };
 
 export default function AdminDashboard() {
+  const { sessions } = useSessions();
+  const { courses } = useCourses();
+  const [users, setUsers] = useState<AppUser[]>([]);
+  const [departmentRefs, setDepartmentRefs] = useState<DepartmentRef[]>([]);
+
+  const fetchUsers = useCallback(async () => {
+    const res = await api.get<{ success: boolean; data: AppUser[] }>("/admin/users");
+    setUsers(res.data.data);
+  }, []);
+
+  useEffect(() => {
+    fetchUsers();
+    api
+      .get<{ success: boolean; data: { faculties: unknown[]; departments: DepartmentRef[] } }>(
+        "/admin/departments"
+      )
+      .then((res) => setDepartmentRefs(res.data.data.departments));
+  }, [fetchUsers]);
+
+  // /admin/departments only returns reference data (faculty + department
+  // names/codes) — counts must be derived from the real users/courses lists.
+  // Both join on the full department name, which is what a User or Course
+  // actually stores; the code is display-only reference data.
+  const departments: Department[] = useMemo(
+    () =>
+      departmentRefs.map((d) => ({
+        id: d.id,
+        name: d.name,
+        code: d.code,
+        courses: courses.filter((c) => c.department === d.name).length,
+        students: users.filter((u) => u.role === "student" && u.department === d.name).length,
+      })),
+    [departmentRefs, courses, users]
+  );
+
+  async function toggleActive(u: AppUser) {
+    await api.patch(`/admin/users/${u.id}`, { isActive: !u.isActive });
+    await fetchUsers();
+  }
+
   return (
     <div style={{ padding: "28px 32px" }}>
       {/* Header */}
@@ -115,7 +130,7 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {USERS.map((u) => (
+                {users.map((u) => (
                   <tr key={u.id}>
                     <td style={TD}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -136,16 +151,19 @@ export default function AdminDashboard() {
                       </span>
                     </td>
                     <td style={TD}>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontFamily: "var(--font-ibm-plex-mono), monospace", fontSize: 10, fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase", padding: "2px 7px", border: "1px solid oklch(0.87 0.014 78)", borderRadius: 2, color: u.active ? "oklch(0.55 0.13 152)" : "oklch(0.55 0.2 27)" }}>
-                        <span style={{ width: 5, height: 5, borderRadius: "50%", background: u.active ? "oklch(0.55 0.13 152)" : "oklch(0.55 0.2 27)", flexShrink: 0 }} />
-                        {u.active ? "Active" : "Inactive"}
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontFamily: "var(--font-ibm-plex-mono), monospace", fontSize: 10, fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase", padding: "2px 7px", border: "1px solid oklch(0.87 0.014 78)", borderRadius: 2, color: u.isActive ? "oklch(0.55 0.13 152)" : "oklch(0.55 0.2 27)" }}>
+                        <span style={{ width: 5, height: 5, borderRadius: "50%", background: u.isActive ? "oklch(0.55 0.13 152)" : "oklch(0.55 0.2 27)", flexShrink: 0 }} />
+                        {u.isActive ? "Active" : "Inactive"}
                       </span>
                     </td>
                     <td style={TD}>
                       <div style={{ display: "flex", gap: 12 }}>
                         <button style={{ fontFamily: "var(--font-ibm-plex-mono), monospace", fontSize: 12, background: "none", border: "none", color: "oklch(0.55 0.16 41)", cursor: "pointer", padding: 0 }}>Edit</button>
-                        <button style={{ fontFamily: "var(--font-ibm-plex-mono), monospace", fontSize: 12, background: "none", border: "none", color: "oklch(0.53 0.2 27)", cursor: "pointer", padding: 0 }}>
-                          {u.active ? "Deactivate" : "Activate"}
+                        <button
+                          onClick={() => toggleActive(u)}
+                          style={{ fontFamily: "var(--font-ibm-plex-mono), monospace", fontSize: 12, background: "none", border: "none", color: "oklch(0.53 0.2 27)", cursor: "pointer", padding: 0 }}
+                        >
+                          {u.isActive ? "Deactivate" : "Activate"}
                         </button>
                       </div>
                     </td>
@@ -170,7 +188,7 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {DEPARTMENTS.map((d) => (
+                {departments.map((d) => (
                   <tr key={d.id}>
                     <td style={{ ...TD, fontWeight: 600 }}>{d.name}</td>
                     <td style={TD}><span style={{ fontFamily: "var(--font-ibm-plex-mono), monospace", fontSize: 12, fontWeight: 600 }}>{d.code}</span></td>
@@ -203,7 +221,7 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {COURSES.map((c) => (
+                {courses.map((c) => (
                   <tr key={c.id}>
                     <td style={TD}><span style={{ fontFamily: "var(--font-ibm-plex-mono), monospace", fontSize: 13, fontWeight: 600 }}>{c.code}</span></td>
                     <td style={{ ...TD, fontWeight: 600 }}>{c.title}</td>
@@ -237,12 +255,12 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {SCHEDULE.map((s) => (
+                {sessions.map((s) => (
                   <tr key={s.id}>
                     <td style={TD}><span style={{ fontFamily: "var(--font-ibm-plex-mono), monospace", fontSize: 13, fontWeight: 600 }}>{s.courseCode}</span></td>
                     <td style={{ ...TD, fontWeight: 600 }}>{s.courseName}</td>
                     <td style={TD}>{s.day}</td>
-                    <td style={TD}><span style={{ fontFamily: "var(--font-ibm-plex-mono), monospace", fontSize: 12 }}>{s.time}</span></td>
+                    <td style={TD}><span style={{ fontFamily: "var(--font-ibm-plex-mono), monospace", fontSize: 12 }}>{s.startTime}–{s.endTime}</span></td>
                     <td style={TD}><span style={{ fontFamily: "var(--font-ibm-plex-mono), monospace", fontSize: 12 }}>{s.venue}</span></td>
                     <td style={TD}><StatusChip status={s.status} /></td>
                   </tr>

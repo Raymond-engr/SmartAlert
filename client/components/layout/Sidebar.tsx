@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Plus,
@@ -12,6 +12,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { LogoMark } from "@/components/LogoMark";
+import { useAuth } from "@/context/AuthContext";
 import type { AppUser } from "@/types";
 
 interface NavItem {
@@ -79,7 +80,7 @@ function getNavItems(user: AppUser, alertCount?: number): NavItem[] {
 }
 
 function getRoleLabel(user: AppUser): string {
-  const dept = user.department.toUpperCase().slice(0, 3);
+  const dept = user.departmentCode;
   switch (user.role) {
     case "student":
       return `STUDENT · ${dept}`;
@@ -97,7 +98,14 @@ interface SidebarProps {
 
 export function Sidebar({ user, alertCount }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { logout } = useAuth();
   const navItems = getNavItems(user, alertCount);
+
+  async function handleSignOut() {
+    await logout();
+    router.replace("/login");
+  }
 
   return (
     <aside
@@ -273,8 +281,9 @@ export function Sidebar({ user, alertCount }: SidebarProps) {
           borderTop: "1px solid oklch(0.88 0.014 80)",
         }}
       >
-        <Link
-          href="/login"
+        <button
+          type="button"
+          onClick={handleSignOut}
           style={{
             display: "flex",
             alignItems: "center",
@@ -294,7 +303,7 @@ export function Sidebar({ user, alertCount }: SidebarProps) {
         >
           <LogOut size={15} />
           Sign out
-        </Link>
+        </button>
       </div>
     </aside>
   );

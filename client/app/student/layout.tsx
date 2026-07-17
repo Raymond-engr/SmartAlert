@@ -1,27 +1,33 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { MobileHeader } from "@/components/layout/MobileHeader";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
-import type { AppUser } from "@/types";
-
-const STUDENT_USER: AppUser = {
-  id: "1",
-  name: "Harriet Samuel",
-  firstName: "Harriet",
-  email: "harriet@student.uniben.edu.ng",
-  role: "student",
-  department: "CSC",
-  initials: "HS",
-};
-
-const ALERT_COUNT = 2;
+import { useAuth } from "@/context/AuthContext";
+import { useNotifications } from "@/hooks/useNotifications";
 
 export default function StudentLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const router = useRouter();
+  const { user, loading } = useAuth();
+  const { unreadCount } = useNotifications();
+
+  useEffect(() => {
+    if (loading) return;
+    if (!user) {
+      router.replace("/login");
+    } else if (user.role !== "student") {
+      router.replace("/" + user.role + "/dashboard");
+    }
+  }, [loading, user, router]);
+
+  if (loading || !user) return null;
+
   return (
     <div
       style={{
@@ -48,7 +54,7 @@ export default function StudentLayout({
         }}
         className="hidden lg:flex"
       >
-        <Sidebar user={STUDENT_USER} alertCount={ALERT_COUNT} />
+        <Sidebar user={user} alertCount={unreadCount} />
         <main
           style={{
             flex: 1,
@@ -75,7 +81,7 @@ export default function StudentLayout({
         }}
         className="flex lg:hidden"
       >
-        <MobileHeader user={STUDENT_USER} alertCount={ALERT_COUNT} />
+        <MobileHeader user={user} alertCount={unreadCount} />
         <main
           style={{
             flex: 1,
@@ -85,7 +91,7 @@ export default function StudentLayout({
         >
           {children}
         </main>
-        <MobileBottomNav user={STUDENT_USER} alertCount={ALERT_COUNT} />
+        <MobileBottomNav user={user} alertCount={unreadCount} />
       </div>
     </div>
   );

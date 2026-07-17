@@ -1,25 +1,31 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { MobileHeader } from "@/components/layout/MobileHeader";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
-import type { AppUser } from "@/types";
-
-const ADMIN_USER: AppUser = {
-  id: "3",
-  name: "Sarah Adeola",
-  firstName: "Sarah",
-  email: "sarah@uniben.edu.ng",
-  role: "admin",
-  department: "CSC",
-  initials: "SA",
-};
+import { useAuth } from "@/context/AuthContext";
 
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (loading) return;
+    if (!user) {
+      router.replace("/login");
+    } else if (user.role !== "admin") {
+      router.replace("/" + user.role + "/dashboard");
+    }
+  }, [loading, user, router]);
+
+  if (loading || !user) return null;
+
   return (
     <div
       style={{
@@ -46,7 +52,7 @@ export default function AdminLayout({
         }}
         className="hidden lg:flex"
       >
-        <Sidebar user={ADMIN_USER} />
+        <Sidebar user={user} alertCount={0} />
         <main
           style={{
             flex: 1,
@@ -73,7 +79,7 @@ export default function AdminLayout({
         }}
         className="flex lg:hidden"
       >
-        <MobileHeader user={ADMIN_USER} greeting="GOOD MORNING" />
+        <MobileHeader user={user} alertCount={0} greeting="GOOD MORNING" />
         <main
           style={{
             flex: 1,
@@ -83,7 +89,7 @@ export default function AdminLayout({
         >
           {children}
         </main>
-        <MobileBottomNav user={ADMIN_USER} />
+        <MobileBottomNav user={user} alertCount={0} />
       </div>
     </div>
   );

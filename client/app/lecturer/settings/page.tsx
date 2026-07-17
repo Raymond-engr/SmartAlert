@@ -1,13 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/context/AuthContext";
+import { api } from "@/lib/api";
 
 export default function LecturerSettings() {
+  const { user, refreshUser } = useAuth();
   const [email, setEmail] = useState(true);
+  const [name, setName] = useState(user?.name ?? "");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (user) setName(user.name);
+  }, [user]);
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      await api.patch("/auth/me", { name });
+      await refreshUser();
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div style={{ padding: "28px 32px", maxWidth: 560, display: "flex", flexDirection: "column", gap: 22 }}>
@@ -44,14 +63,14 @@ export default function LecturerSettings() {
             flexShrink: 0,
           }}
         >
-          EO
+          {user?.initials}
         </div>
         <div>
           <div style={{ fontSize: 18, fontWeight: 600, color: "oklch(0.24 0.014 55)" }}>
-            Emmanuel Okoro
+            {user?.name}
           </div>
           <div style={{ fontFamily: "var(--font-ibm-plex-mono), monospace", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em", color: "oklch(0.6 0.01 55)" }}>
-            LECTURER · CSC
+            LECTURER · {user?.departmentCode}
           </div>
         </div>
       </div>
@@ -64,15 +83,15 @@ export default function LecturerSettings() {
         <div style={{ background: "oklch(0.99 0.007 83)", border: "1px solid oklch(0.86 0.014 78)", borderRadius: 5, padding: 18, display: "flex", flexDirection: "column", gap: 16 }}>
           <div>
             <Label htmlFor="l-name">Full name</Label>
-            <Input id="l-name" defaultValue="Emmanuel Okoro" />
+            <Input id="l-name" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div>
             <Label htmlFor="l-email">University email</Label>
-            <Input id="l-email" defaultValue="emmanuel@uniben.edu.ng" type="email" />
+            <Input id="l-email" defaultValue={user?.email} type="email" readOnly style={{ background: "oklch(0.955 0.012 83)" }} />
           </div>
           <div>
             <Label htmlFor="l-dept">Department</Label>
-            <Input id="l-dept" defaultValue="Computer Science" readOnly style={{ background: "oklch(0.955 0.012 83)" }} />
+            <Input id="l-dept" defaultValue={user?.department} readOnly style={{ background: "oklch(0.955 0.012 83)" }} />
           </div>
         </div>
       </div>
@@ -93,8 +112,8 @@ export default function LecturerSettings() {
         </div>
       </div>
 
-      <Button variant="primary" size="default" style={{ alignSelf: "flex-start" }}>
-        Save changes
+      <Button variant="primary" size="default" style={{ alignSelf: "flex-start" }} onClick={handleSave} disabled={saving}>
+        {saving ? "Saving…" : "Save changes"}
       </Button>
     </div>
   );

@@ -1,6 +1,5 @@
 "use client";
 
-import type { Metadata } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -8,6 +7,7 @@ import { LogoMark } from "@/components/LogoMark";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/context/AuthContext";
 
 const PANEL_FEATURES = [
   {
@@ -26,8 +26,28 @@ const PANEL_FEATURES = [
 
 export default function LoginPage() {
   const router = useRouter();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSubmitting(true);
+    try {
+      const user = await login(email, password);
+      router.push(`/${user.role}/dashboard`);
+    } catch (err) {
+      const message =
+        (err as { response?: { data?: { message?: string } } }).response
+          ?.data?.message ?? "Something went wrong. Please try again.";
+      setError(message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <div
@@ -234,7 +254,7 @@ export default function LoginPage() {
         </p>
 
         <form
-          onSubmit={(e) => e.preventDefault()}
+          onSubmit={handleSubmit}
           style={{ display: "flex", flexDirection: "column", gap: 18 }}
         >
           <div>
@@ -280,48 +300,15 @@ export default function LoginPage() {
             />
           </div>
 
-          {/* Demo sign-in section */}
-          <div style={{ marginTop: 4 }}>
-            <p
-              style={{
-                fontFamily: "var(--font-ibm-plex-mono), monospace",
-                fontSize: 10,
-                fontWeight: 500,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                color: "oklch(0.6 0.01 55)",
-                marginBottom: 10,
-              }}
-            >
-              Sign in as (demo)
+          {error && (
+            <p style={{ fontSize: 13, color: "oklch(0.55 0.2 27)" }}>
+              {error}
             </p>
+          )}
 
-            <Button
-              variant="primary"
-              size="full"
-              onClick={() => router.push("/student/dashboard")}
-              style={{ marginBottom: 8 }}
-            >
-              Sign in as Student
-            </Button>
-
-            <div style={{ display: "flex", gap: 8 }}>
-              <Button
-                variant="ghost"
-                size="full"
-                onClick={() => router.push("/lecturer/dashboard")}
-              >
-                Lecturer
-              </Button>
-              <Button
-                variant="ghost"
-                size="full"
-                onClick={() => router.push("/admin/dashboard")}
-              >
-                Admin
-              </Button>
-            </div>
-          </div>
+          <Button variant="primary" size="full" type="submit" disabled={submitting}>
+            {submitting ? "Signing in…" : "Sign in"}
+          </Button>
         </form>
 
         <p

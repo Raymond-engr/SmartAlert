@@ -1,25 +1,31 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { MobileHeader } from "@/components/layout/MobileHeader";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
-import type { AppUser } from "@/types";
-
-const LECTURER_USER: AppUser = {
-  id: "2",
-  name: "Emmanuel Okoro",
-  firstName: "Emmanuel",
-  email: "emmanuel@uniben.edu.ng",
-  role: "lecturer",
-  department: "CSC",
-  initials: "EO",
-};
+import { useAuth } from "@/context/AuthContext";
 
 export default function LecturerLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (loading) return;
+    if (!user) {
+      router.replace("/login");
+    } else if (user.role !== "lecturer") {
+      router.replace("/" + user.role + "/dashboard");
+    }
+  }, [loading, user, router]);
+
+  if (loading || !user) return null;
+
   return (
     <div
       style={{
@@ -46,7 +52,7 @@ export default function LecturerLayout({
         }}
         className="hidden lg:flex"
       >
-        <Sidebar user={LECTURER_USER} />
+        <Sidebar user={user} alertCount={0} />
         <main
           style={{
             flex: 1,
@@ -73,7 +79,7 @@ export default function LecturerLayout({
         }}
         className="flex lg:hidden"
       >
-        <MobileHeader user={LECTURER_USER} greeting="GOOD AFTERNOON" />
+        <MobileHeader user={user} alertCount={0} greeting="GOOD AFTERNOON" />
         <main
           style={{
             flex: 1,
@@ -83,7 +89,7 @@ export default function LecturerLayout({
         >
           {children}
         </main>
-        <MobileBottomNav user={LECTURER_USER} />
+        <MobileBottomNav user={user} alertCount={0} />
       </div>
     </div>
   );

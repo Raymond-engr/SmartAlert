@@ -7,12 +7,48 @@ import { LogoMark } from "@/components/LogoMark";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/context/AuthContext";
 
 type Role = "student" | "lecturer";
 
+const DEPARTMENT = "Department of Computer Science";
+
 export default function RegisterPage() {
   const router = useRouter();
+  const { register } = useAuth();
   const [role, setRole] = useState<Role>("student");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [matricNumber, setMatricNumber] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSubmitting(true);
+    try {
+      await register({
+        name,
+        email,
+        password,
+        role,
+        department: DEPARTMENT,
+        ...(role === "student" && matricNumber.trim()
+          ? { matricNumber: matricNumber.trim() }
+          : {}),
+      });
+      router.push(`/${role}/dashboard`);
+    } catch (err) {
+      const message =
+        (err as { response?: { data?: { message?: string } } }).response
+          ?.data?.message ?? "Something went wrong. Please try again.";
+      setError(message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <div
@@ -168,15 +204,18 @@ export default function RegisterPage() {
         </p>
 
         <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            router.push(`/${role}/dashboard`);
-          }}
+          onSubmit={handleSubmit}
           style={{ display: "flex", flexDirection: "column", gap: 18 }}
         >
           <div>
             <Label htmlFor="name">Full name</Label>
-            <Input id="name" type="text" placeholder="Harriet Samuel" />
+            <Input
+              id="name"
+              type="text"
+              placeholder="Harriet Samuel"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
           </div>
 
           <div>
@@ -185,6 +224,8 @@ export default function RegisterPage() {
               id="reg-email"
               type="email"
               placeholder="you@uniben.edu.ng"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
             />
           </div>
 
@@ -194,6 +235,8 @@ export default function RegisterPage() {
               id="reg-password"
               type="password"
               placeholder="Choose a strong password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
             />
           </div>
 
@@ -249,8 +292,27 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          <Button variant="primary" size="full" type="submit">
-            Create account
+          {role === "student" && (
+            <div>
+              <Label htmlFor="matric">Matric number</Label>
+              <Input
+                id="matric"
+                type="text"
+                placeholder="e.g. CSC/2021/001"
+                value={matricNumber}
+                onChange={(e) => setMatricNumber(e.target.value)}
+              />
+            </div>
+          )}
+
+          {error && (
+            <p style={{ fontSize: 13, color: "oklch(0.55 0.2 27)" }}>
+              {error}
+            </p>
+          )}
+
+          <Button variant="primary" size="full" type="submit" disabled={submitting}>
+            {submitting ? "Creating account…" : "Create account"}
           </Button>
         </form>
 

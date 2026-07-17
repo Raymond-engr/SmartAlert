@@ -1,29 +1,47 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
 import { StatusChip } from "@/components/StatusChip";
-import { getStatusColor } from "@/lib/utils";
+import { getStatusColor, formatAlertTimestamp } from "@/lib/utils";
+import { api } from "@/lib/api";
+import { useSessions } from "@/hooks/useSessions";
 import type { Alert } from "@/types";
 
-const ALERTS: Alert[] = [
-  {
-    id: "1",
-    courseCode: "CSC 305",
-    courseName: "Database Systems",
-    status: "cancelled",
-    message: "You cancelled the Friday 08:00 session. 23 students were notified.",
-    timestamp: "Fri · 07:40",
-    unread: false,
-  },
-  {
-    id: "2",
-    courseCode: "CSC 401",
-    courseName: "Software Engineering",
-    status: "live",
-    message: "Your Monday 10:00 session started and is now in progress.",
-    timestamp: "Today · 10:01",
-    unread: false,
-  },
-];
-
 export default function LecturerNotifications() {
+  const { sessions } = useSessions();
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+
+  // A lecturer's alert feed is per-course; derive the distinct courses they
+  // teach from their own sessions rather than calling GET /courses, since
+  // useSessions() is already role-scoped to exactly the right set.
+  const courseIds = useMemo(
+    () => Array.from(new Set(sessions.map((s) => s.courseId))),
+    [sessions]
+  );
+
+  useEffect(() => {
+    if (courseIds.length === 0) {
+      setAlerts([]);
+      return;
+    }
+    let cancelled = false;
+    Promise.all(
+      courseIds.map((id) =>
+        api.get<{ success: boolean; data: Alert[] }>(`/notifications/course/${id}`)
+      )
+    ).then((responses) => {
+      if (cancelled) return;
+      const combined = responses.flatMap((r) => r.data.data);
+      combined.sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      setAlerts(combined);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [courseIds]);
+
   return (
     <div style={{ padding: "28px 32px", maxWidth: 720 }}>
       <h1
@@ -49,14 +67,14 @@ export default function LecturerNotifications() {
           overflow: "hidden",
         }}
       >
-        {ALERTS.map((alert, i) => (
+        {alerts.map((alert, i) => (
           <div
             key={alert.id}
             style={{
               display: "flex",
               gap: 14,
               padding: "15px 16px",
-              borderBottom: i < ALERTS.length - 1 ? "1px solid oklch(0.9 0.012 80)" : "none",
+              borderBottom: i < alerts.length - 1 ? "1px solid oklch(0.9 0.012 80)" : "none",
             }}
           >
             <span
@@ -97,7 +115,7 @@ export default function LecturerNotifications() {
                     marginLeft: "auto",
                   }}
                 >
-                  {alert.timestamp}
+                  {formatAlertTimestamp(alert.createdAt)}
                 </span>
               </div>
               <p style={{ fontSize: 13, color: "oklch(0.42 0.012 55)", lineHeight: 1.5 }}>
