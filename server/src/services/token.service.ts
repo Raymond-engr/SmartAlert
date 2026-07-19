@@ -9,30 +9,30 @@ validateEnv();
 
 /**
  * The `Domain` attribute for the refresh cookie, or `undefined` to leave it
- * off entirely.
+ * off entirely — which is the right answer almost always.
  *
- * RFC 6265 forbids a Domain that is an IP literal, and browsers respond by
- * dropping the whole cookie rather than ignoring just the attribute. That
- * matters when testing on a phone: the laptop is reached at something like
- * http://192.168.1.5:3000, so sending Domain=192.168.1.5 would silently lose
- * the refresh token. Sign-in would appear to work — the access token lives in
- * memory — and then every reload would land back on the login screen.
+ * Omitting Domain gives a host-only cookie: the browser stores it against the
+ * API's own host and sends it back only there. That is the entire lifecycle of
+ * this cookie. It is httpOnly, so the frontend cannot read it under any
+ * scoping, and the only code that ever consumes it is the refresh endpoint.
  *
- * Omitting Domain yields a host-only cookie, which is what we want in every
- * case except a real deployment serving the API from a sibling subdomain.
+ * Deriving the value from FRONTEND_URL, as this once did, is worse than
+ * redundant. A server may only set a cookie for itself or a parent of itself,
+ * so an API on smartalert-api.onrender.com naming smartalert.vercel.app is
+ * rejected outright — the browser drops the cookie rather than trimming the
+ * attribute. Login still looks fine, because the access token is held in
+ * memory, and then the first reload finds no refresh cookie and bounces the
+ * user back to the login screen.
+ *
+ * Set COOKIE_DOMAIN only when the API and the frontend sit on subdomains of
+ * one parent you control, and set it to that shared parent — COOKIE_DOMAIN=
+ * smartalert.ng for api.smartalert.ng and app.smartalert.ng. Naming either
+ * sibling instead fails the same rule. Cross-site delivery does not need this
+ * and never did: that is what SameSite=None with Secure is for.
  */
 export function cookieDomain(): string | undefined {
-  const host = new URL(
-    process.env.FRONTEND_URL || 'http://localhost:3001'
-  ).hostname;
-
-  const isIpv4 = /^\d{1,3}(\.\d{1,3}){3}$/.test(host);
-  const isIpv6 = host.includes(':');
-
-  if (host === 'localhost' || isIpv4 || isIpv6) {
-    return undefined;
-  }
-  return host;
+  const configured = (process.env.COOKIE_DOMAIN || '').trim();
+  return configured === '' ? undefined : configured;
 }
 
 interface BlacklistedTokenDocument extends mongoose.Document {
@@ -178,7 +178,16 @@ class TokenService {
   }
 
   clearRefreshTokenCookie(res: Response): void {
-    res.clearCookie('refreshToken');
+    // The attributes have to match the ones the cookie was set with or the
+    // browser treats this as clearing a different cookie and leaves the real
+    // one in place — so signing out would not actually end the session.
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      path: '/',
+      domain: cookieDomain(),
+    });
   }
 }
 

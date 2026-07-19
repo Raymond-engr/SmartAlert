@@ -19,6 +19,10 @@ const validateEnv = (): void => {
     MONGODB_URI: url(),
     FRONTEND_URL: url(),
     ALLOWED_ORIGINS: str({ default: '' }),
+    // Leave blank unless the API and the frontend are subdomains of one
+    // parent, in which case set it to that parent. Blank yields a host-only
+    // refresh cookie, which is correct for every other deployment.
+    COOKIE_DOMAIN: str({ default: '' }),
     API_URL: url(),
     LOG_LEVEL: str({
       choices: ['error', 'warn', 'info', 'http', 'verbose', 'debug', 'silly'],
