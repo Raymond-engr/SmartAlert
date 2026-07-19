@@ -7,6 +7,34 @@ import logger from '../utils/logger';
 
 validateEnv();
 
+/**
+ * The `Domain` attribute for the refresh cookie, or `undefined` to leave it
+ * off entirely.
+ *
+ * RFC 6265 forbids a Domain that is an IP literal, and browsers respond by
+ * dropping the whole cookie rather than ignoring just the attribute. That
+ * matters when testing on a phone: the laptop is reached at something like
+ * http://192.168.1.5:3000, so sending Domain=192.168.1.5 would silently lose
+ * the refresh token. Sign-in would appear to work — the access token lives in
+ * memory — and then every reload would land back on the login screen.
+ *
+ * Omitting Domain yields a host-only cookie, which is what we want in every
+ * case except a real deployment serving the API from a sibling subdomain.
+ */
+export function cookieDomain(): string | undefined {
+  const host = new URL(
+    process.env.FRONTEND_URL || 'http://localhost:3001'
+  ).hostname;
+
+  const isIpv4 = /^\d{1,3}(\.\d{1,3}){3}$/.test(host);
+  const isIpv6 = host.includes(':');
+
+  if (host === 'localhost' || isIpv4 || isIpv6) {
+    return undefined;
+  }
+  return host;
+}
+
 interface BlacklistedTokenDocument extends mongoose.Document {
   token: string;
   expiresAt: Date;
@@ -138,9 +166,6 @@ class TokenService {
 
   setRefreshTokenCookie(res: Response, token: string): void {
     const isProduction = process.env.NODE_ENV === 'production';
-    const frontendDomain = new URL(
-      process.env.FRONTEND_URL || 'http://localhost:3001'
-    ).hostname;
 
     res.cookie('refreshToken', token, {
       httpOnly: true,
@@ -148,7 +173,7 @@ class TokenService {
       sameSite: isProduction ? 'none' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       path: '/',
-      domain: frontendDomain === 'localhost' ? undefined : frontendDomain,
+      domain: cookieDomain(),
     });
   }
 
