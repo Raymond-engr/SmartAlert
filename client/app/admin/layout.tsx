@@ -1,37 +1,38 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { MobileHeader } from "@/components/layout/MobileHeader";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
-import type { AppUser } from "@/types";
-
-const ADMIN_USER: AppUser = {
-  id: "3",
-  name: "Sarah Adeola",
-  firstName: "Sarah",
-  email: "sarah@uniben.edu.ng",
-  role: "admin",
-  department: "CSC",
-  initials: "SA",
-};
+import { useAuth } from "@/context/AuthContext";
 
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (loading) return;
+    if (!user) {
+      router.replace("/login");
+    } else if (user.role !== "admin") {
+      router.replace("/" + user.role + "/dashboard");
+    }
+  }, [loading, user, router]);
+
+  if (loading || !user) return null;
+
   return (
     <div
-      style={{
-        minHeight: "100vh",
-        background: "oklch(0.955 0.012 83)",
-        display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "center",
-        padding: "24px 16px",
-      }}
+      style={{ background: "oklch(0.955 0.012 83)" }}
+      className="min-h-screen flex items-start justify-center lg:py-6 lg:px-4"
     >
-      {/* Desktop */}
+      {/* Desktop. `display` is left to the utility classes: an inline display
+          would outrank `hidden` and render both frames at once. */}
       <div
         style={{
           width: "100%",
@@ -42,11 +43,10 @@ export default function AdminLayout({
           borderRadius: 6,
           boxShadow: "0 24px 60px oklch(0.24 0.03 55 / 0.12)",
           overflow: "hidden",
-          display: "flex",
         }}
         className="hidden lg:flex"
       >
-        <Sidebar user={ADMIN_USER} />
+        <Sidebar user={user} alertCount={0} />
         <main
           style={{
             flex: 1,
@@ -58,22 +58,13 @@ export default function AdminLayout({
         </main>
       </div>
 
-      {/* Mobile */}
+      {/* Mobile: fills the viewport rather than sitting inside a phone
+          mockup, so a real handset gets a real app. */}
       <div
-        style={{
-          width: 390,
-          maxHeight: 800,
-          background: "oklch(0.99 0.01 83)",
-          borderRadius: 40,
-          boxShadow: "0 28px 64px oklch(0.24 0.04 55 / 0.22)",
-          border: "8px solid oklch(0.22 0.014 55)",
-          overflow: "hidden",
-          display: "flex",
-          flexDirection: "column",
-        }}
-        className="flex lg:hidden"
+        style={{ background: "oklch(0.99 0.01 83)" }}
+        className="flex lg:hidden flex-col w-full h-dvh"
       >
-        <MobileHeader user={ADMIN_USER} greeting="GOOD MORNING" />
+        <MobileHeader user={user} alertCount={0} greeting="GOOD MORNING" />
         <main
           style={{
             flex: 1,
@@ -83,7 +74,7 @@ export default function AdminLayout({
         >
           {children}
         </main>
-        <MobileBottomNav user={ADMIN_USER} />
+        <MobileBottomNav user={user} alertCount={0} />
       </div>
     </div>
   );

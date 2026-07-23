@@ -1,67 +1,33 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import { StatusChip } from "@/components/StatusChip";
-import { getStatusColor } from "@/lib/utils";
+import { getStatusColor, formatAlertTimestamp } from "@/lib/utils";
+import { useNotifications } from "@/hooks/useNotifications";
 import type { Alert } from "@/types";
 
-const ALERTS: Alert[] = [
-  {
-    id: "1",
-    courseCode: "CSC 403",
-    courseName: "Operating Systems",
-    status: "cancelled",
-    message: "Today's 14:00 session has been cancelled. Dr. Adama is unavailable. Next session: Monday 28 July.",
-    timestamp: "Today · 12:35",
-    unread: true,
-  },
-  {
-    id: "2",
-    courseCode: "MTH 301",
-    courseName: "Calculus III",
-    status: "moved",
-    message: "Today's session has been rescheduled to 14:00–16:00 in LH2. Venue unchanged.",
-    timestamp: "Today · 11:45",
-    unread: true,
-  },
-  {
-    id: "3",
-    courseCode: "CSC 401",
-    courseName: "Software Engineering",
-    status: "live",
-    message: "Session is now in progress in LT1. Lecturer: Dr. Emmanuel Okoro.",
-    timestamp: "Today · 10:03",
-    unread: false,
-  },
-  {
-    id: "4",
-    courseCode: "CSC 305",
-    courseName: "Database Systems",
-    status: "moved",
-    message: "Last Friday's session was moved to Monday 14 July at 08:00 in LT3.",
-    timestamp: "Fri · 16:20",
-    unread: false,
-  },
-  {
-    id: "5",
-    courseCode: "CSC 407",
-    courseName: "Computer Networks",
-    status: "cancelled",
-    message: "Tuesday's session cancelled due to public holiday. Session will resume next week.",
-    timestamp: "Mon · 09:00",
-    unread: false,
-  },
-  {
-    id: "6",
-    courseCode: "MTH 301",
-    courseName: "Calculus III",
-    status: "scheduled",
-    message: "Reminder: session tomorrow at 10:00 in LH2. No changes.",
-    timestamp: "Sun · 20:00",
-    unread: false,
-  },
-];
-
 export default function StudentNotifications() {
+  const { alerts, markAllRead } = useNotifications();
+  const [snapshot, setSnapshot] = useState<Alert[] | null>(null);
+  const markedRef = useRef(false);
+
+  useEffect(() => {
+    if (snapshot === null && alerts.length > 0) {
+      setSnapshot(alerts);
+    }
+  }, [alerts, snapshot]);
+
+  useEffect(() => {
+    if (!markedRef.current) {
+      markedRef.current = true;
+      markAllRead();
+    }
+  }, [markAllRead]);
+
+  const displayAlerts = snapshot ?? alerts;
+
   return (
-    <div style={{ padding: "28px 32px", maxWidth: 720 }}>
+    <div style={{ maxWidth: 720 }} className="px-4 py-6 lg:px-8 lg:py-7">
       <h1
         style={{
           fontSize: 23,
@@ -91,7 +57,7 @@ export default function StudentNotifications() {
           overflow: "hidden",
         }}
       >
-        {ALERTS.map((alert, i) => (
+        {displayAlerts.map((alert, i) => (
           <div
             key={alert.id}
             style={{
@@ -99,7 +65,7 @@ export default function StudentNotifications() {
               gap: 14,
               padding: "15px 16px",
               borderBottom:
-                i < ALERTS.length - 1
+                i < displayAlerts.length - 1
                   ? "1px solid oklch(0.9 0.012 80)"
                   : "none",
               background: alert.unread
@@ -147,7 +113,7 @@ export default function StudentNotifications() {
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {alert.timestamp}
+                  {formatAlertTimestamp(alert.createdAt)}
                 </span>
               </div>
               <p

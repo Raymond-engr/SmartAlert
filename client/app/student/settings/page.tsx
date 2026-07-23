@@ -1,17 +1,36 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/context/AuthContext";
+import { api } from "@/lib/api";
 
 export default function StudentSettings() {
+  const { user, refreshUser } = useAuth();
   const [inApp, setInApp] = useState(true);
   const [email, setEmail] = useState(true);
+  const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (user) setName(user.name);
+  }, [user]);
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      await api.patch("/auth/me", { name });
+      await refreshUser();
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
-    <div style={{ padding: "28px 32px", maxWidth: 560, display: "flex", flexDirection: "column", gap: 22 }}>
+    <div style={{ maxWidth: 560, display: "flex", flexDirection: "column", gap: 22 }} className="px-4 py-6 lg:px-8 lg:py-7">
       <div>
         <h1
           style={{
@@ -58,11 +77,11 @@ export default function StudentSettings() {
             flexShrink: 0,
           }}
         >
-          HS
+          {user?.initials}
         </div>
         <div>
           <div style={{ fontSize: 18, fontWeight: 600, color: "oklch(0.24 0.014 55)" }}>
-            Harriet Samuel
+            {user?.name}
           </div>
           <div
             style={{
@@ -73,7 +92,7 @@ export default function StudentSettings() {
               color: "oklch(0.6 0.01 55)",
             }}
           >
-            STUDENT · CSC
+            {user?.role.toUpperCase()} · {user?.departmentCode}
           </div>
         </div>
       </div>
@@ -106,15 +125,19 @@ export default function StudentSettings() {
         >
           <div>
             <Label htmlFor="s-name">Full name</Label>
-            <Input id="s-name" defaultValue="Harriet Samuel" />
+            <Input
+              id="s-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
           </div>
           <div>
             <Label htmlFor="s-email">University email</Label>
-            <Input id="s-email" defaultValue="harriet@student.uniben.edu.ng" type="email" />
+            <Input id="s-email" defaultValue={user?.email} type="email" />
           </div>
           <div>
             <Label htmlFor="s-dept">Department</Label>
-            <Input id="s-dept" defaultValue="Computer Science" readOnly style={{ background: "oklch(0.955 0.012 83)" }} />
+            <Input id="s-dept" defaultValue={user?.department} readOnly style={{ background: "oklch(0.955 0.012 83)" }} />
           </div>
         </div>
       </div>
@@ -183,8 +206,14 @@ export default function StudentSettings() {
         </div>
       </div>
 
-      <Button variant="primary" size="default" style={{ alignSelf: "flex-start" }}>
-        Save changes
+      <Button
+        variant="primary"
+        size="default"
+        style={{ alignSelf: "flex-start" }}
+        onClick={handleSave}
+        disabled={saving}
+      >
+        {saving ? "Saving…" : "Save changes"}
       </Button>
     </div>
   );
