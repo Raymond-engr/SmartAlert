@@ -36,6 +36,12 @@ const updateProfileSchema = z.object({
     department: z.string().min(1).optional(),
     matricNumber: z.string().optional(),
     password: z.string().min(8).optional(),
+    notificationPreferences: z
+      .object({
+        inApp: z.boolean().optional(),
+        email: z.boolean().optional(),
+      })
+      .optional(),
   }),
 });
 

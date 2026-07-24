@@ -254,7 +254,8 @@ class AuthController {
   updateProfile = asyncHandler(
     async (req: Request, res: Response): Promise<void> => {
       const user = req.user!;
-      const { name, department, matricNumber, password } = req.body;
+      const { name, department, matricNumber, password, notificationPreferences } =
+        req.body;
 
       if (department && !isValidDepartment(department)) {
         throw new BadRequestError(
@@ -268,6 +269,16 @@ class AuthController {
         user.matricNumber = matricNumber;
       }
       if (password) user.password = password; // re-hashed by the pre-save hook
+
+      // Merge preferences so a partial update leaves the untouched channel
+      // alone; a missing stored value falls back to true (reachable).
+      if (notificationPreferences) {
+        const current = user.notificationPreferences ?? {};
+        user.notificationPreferences = {
+          inApp: notificationPreferences.inApp ?? current.inApp ?? true,
+          email: notificationPreferences.email ?? current.email ?? true,
+        };
+      }
 
       await user.save();
       logger.info(`Profile updated for ${user.email}`);

@@ -6,6 +6,7 @@ import { initSocket } from './sockets';
 import emailService from './services/email.service';
 import logger from './utils/logger';
 import validateEnv from './utils/validateEnv';
+import { seedDepartments } from './utils/departments';
 
 validateEnv();
 
@@ -14,6 +15,20 @@ const PORT: number = parseInt(process.env.PORT || '4000', 10);
 const startServer = async (): Promise<void> => {
   try {
     await connectDB();
+
+    // Seed the canonical departments and warm the in-memory cache before the
+    // server takes traffic. A failure here must not take the process down: the
+    // read functions fall back to the hard-coded seed cache, so the app stays
+    // usable while the failure is investigated.
+    try {
+      await seedDepartments();
+      logger.info('Departments seeded and cache warmed');
+    } catch (error: unknown) {
+      logger.error(
+        'Failed to seed departments; serving from in-memory seed cache:',
+        error instanceof Error ? error : String(error)
+      );
+    }
 
     // Socket.io and Express share one HTTP server (Chapter Four, 4.4.1) so a
     // student's WebSocket and REST calls hit the same origin and port.

@@ -5,15 +5,20 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { StatusChip } from "@/components/StatusChip";
+import { CourseFormDialog } from "@/components/admin/CourseFormDialog";
+import { DepartmentFormDialog } from "@/components/admin/DepartmentFormDialog";
+import { UserFormDialog } from "@/components/admin/UserFormDialog";
+import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { api } from "@/lib/api";
 import { useSessions } from "@/hooks/useSessions";
 import { useCourses } from "@/hooks/useCourses";
-import type { AppUser, Department } from "@/types";
+import type { AppUser, Course, Department } from "@/types";
 
 interface DepartmentRef {
   id: string;
   name: string;
   code: string;
+  faculty: string;
 }
 
 const ROLE_COLORS: Record<string, string> = {
@@ -51,23 +56,44 @@ const TABLE: React.CSSProperties = {
 
 export default function AdminDashboard() {
   const { sessions } = useSessions();
-  const { courses } = useCourses();
+  const { courses, refetch: refetchCourses } = useCourses();
   const [users, setUsers] = useState<AppUser[]>([]);
   const [departmentRefs, setDepartmentRefs] = useState<DepartmentRef[]>([]);
+  const [tab, setTab] = useState("users");
+
+  // Dialog state
+  const [courseDialog, setCourseDialog] = useState<{ open: boolean; course: Course | null }>({
+    open: false,
+    course: null,
+  });
+  const [departmentDialog, setDepartmentDialog] = useState<{ open: boolean; department: Department | null }>({
+    open: false,
+    department: null,
+  });
+  const [userDialog, setUserDialog] = useState<{ open: boolean; user: AppUser | null }>({
+    open: false,
+    user: null,
+  });
+  const [courseToDelete, setCourseToDelete] = useState<Course | null>(null);
+  const [departmentToDelete, setDepartmentToDelete] = useState<Department | null>(null);
 
   const fetchUsers = useCallback(async () => {
     const res = await api.get<{ success: boolean; data: AppUser[] }>("/admin/users");
     setUsers(res.data.data);
   }, []);
 
+  const fetchDepartments = useCallback(async () => {
+    const res = await api.get<{
+      success: boolean;
+      data: { faculties: unknown[]; departments: DepartmentRef[] };
+    }>("/admin/departments");
+    setDepartmentRefs(res.data.data.departments);
+  }, []);
+
   useEffect(() => {
     fetchUsers();
-    api
-      .get<{ success: boolean; data: { faculties: unknown[]; departments: DepartmentRef[] } }>(
-        "/admin/departments"
-      )
-      .then((res) => setDepartmentRefs(res.data.data.departments));
-  }, [fetchUsers]);
+    fetchDepartments();
+  }, [fetchUsers, fetchDepartments]);
 
   // /admin/departments only returns reference data (faculty + department
   // names/codes) — counts must be derived from the real users/courses lists.
@@ -79,10 +105,16 @@ export default function AdminDashboard() {
         id: d.id,
         name: d.name,
         code: d.code,
+        faculty: d.faculty,
         courses: courses.filter((c) => c.department === d.name).length,
         students: users.filter((u) => u.role === "student" && u.department === d.name).length,
       })),
     [departmentRefs, courses, users]
+  );
+
+  const deptOptions = useMemo(
+    () => departments.map((d) => ({ id: d.id, name: d.name })),
+    [departments]
   );
 
   async function toggleActive(u: AppUser) {
@@ -102,13 +134,23 @@ export default function AdminDashboard() {
             University of Benin · Computer Science
           </p>
         </div>
-        <Button variant="primary" size="default">
-          <Plus size={14} /> Add new
-        </Button>
+        {(tab === "courses" || tab === "departments") && (
+          <Button
+            variant="primary"
+            size="default"
+            onClick={() =>
+              tab === "courses"
+                ? setCourseDialog({ open: true, course: null })
+                : setDepartmentDialog({ open: true, department: null })
+            }
+          >
+            <Plus size={14} /> Add new
+          </Button>
+        )}
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="users">
+      <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="departments">Departments</TabsTrigger>
@@ -158,7 +200,12 @@ export default function AdminDashboard() {
                     </td>
                     <td style={TD}>
                       <div style={{ display: "flex", gap: 12 }}>
-                        <button style={{ fontFamily: "var(--font-ibm-plex-mono), monospace", fontSize: 12, background: "none", border: "none", color: "oklch(0.55 0.16 41)", cursor: "pointer", padding: 0 }}>Edit</button>
+                        <button
+                          onClick={() => setUserDialog({ open: true, user: u })}
+                          style={{ fontFamily: "var(--font-ibm-plex-mono), monospace", fontSize: 12, background: "none", border: "none", color: "oklch(0.55 0.16 41)", cursor: "pointer", padding: 0 }}
+                        >
+                          Edit
+                        </button>
                         <button
                           onClick={() => toggleActive(u)}
                           style={{ fontFamily: "var(--font-ibm-plex-mono), monospace", fontSize: 12, background: "none", border: "none", color: "oklch(0.53 0.2 27)", cursor: "pointer", padding: 0 }}
@@ -196,8 +243,18 @@ export default function AdminDashboard() {
                     <td style={TD}>{d.students.toLocaleString()}</td>
                     <td style={TD}>
                       <div style={{ display: "flex", gap: 12 }}>
-                        <button style={{ fontFamily: "var(--font-ibm-plex-mono), monospace", fontSize: 12, background: "none", border: "none", color: "oklch(0.55 0.16 41)", cursor: "pointer", padding: 0 }}>Edit</button>
-                        <button style={{ fontFamily: "var(--font-ibm-plex-mono), monospace", fontSize: 12, background: "none", border: "none", color: "oklch(0.53 0.2 27)", cursor: "pointer", padding: 0 }}>Delete</button>
+                        <button
+                          onClick={() => setDepartmentDialog({ open: true, department: d })}
+                          style={{ fontFamily: "var(--font-ibm-plex-mono), monospace", fontSize: 12, background: "none", border: "none", color: "oklch(0.55 0.16 41)", cursor: "pointer", padding: 0 }}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => setDepartmentToDelete(d)}
+                          style={{ fontFamily: "var(--font-ibm-plex-mono), monospace", fontSize: 12, background: "none", border: "none", color: "oklch(0.53 0.2 27)", cursor: "pointer", padding: 0 }}
+                        >
+                          Delete
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -229,8 +286,18 @@ export default function AdminDashboard() {
                     <td style={TD}><span style={{ fontFamily: "var(--font-ibm-plex-mono), monospace", fontSize: 12 }}>{c.units}</span></td>
                     <td style={TD}>
                       <div style={{ display: "flex", gap: 12 }}>
-                        <button style={{ fontFamily: "var(--font-ibm-plex-mono), monospace", fontSize: 12, background: "none", border: "none", color: "oklch(0.55 0.16 41)", cursor: "pointer", padding: 0 }}>Edit</button>
-                        <button style={{ fontFamily: "var(--font-ibm-plex-mono), monospace", fontSize: 12, background: "none", border: "none", color: "oklch(0.53 0.2 27)", cursor: "pointer", padding: 0 }}>Delete</button>
+                        <button
+                          onClick={() => setCourseDialog({ open: true, course: c })}
+                          style={{ fontFamily: "var(--font-ibm-plex-mono), monospace", fontSize: 12, background: "none", border: "none", color: "oklch(0.55 0.16 41)", cursor: "pointer", padding: 0 }}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => setCourseToDelete(c)}
+                          style={{ fontFamily: "var(--font-ibm-plex-mono), monospace", fontSize: 12, background: "none", border: "none", color: "oklch(0.53 0.2 27)", cursor: "pointer", padding: 0 }}
+                        >
+                          Delete
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -270,6 +337,70 @@ export default function AdminDashboard() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Course add/edit */}
+      <CourseFormDialog
+        open={courseDialog.open}
+        onOpenChange={(open) => setCourseDialog((s) => ({ ...s, open }))}
+        departments={deptOptions}
+        course={courseDialog.course}
+        onSaved={refetchCourses}
+      />
+
+      {/* Department add/edit */}
+      <DepartmentFormDialog
+        open={departmentDialog.open}
+        onOpenChange={(open) => setDepartmentDialog((s) => ({ ...s, open }))}
+        department={departmentDialog.department}
+        onSaved={fetchDepartments}
+      />
+
+      {/* User edit */}
+      <UserFormDialog
+        open={userDialog.open}
+        onOpenChange={(open) => setUserDialog((s) => ({ ...s, open }))}
+        departments={deptOptions}
+        user={userDialog.user}
+        onSaved={fetchUsers}
+      />
+
+      {/* Course delete */}
+      <ConfirmDialog
+        open={courseToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setCourseToDelete(null);
+        }}
+        title="Delete course"
+        description={
+          courseToDelete
+            ? `Delete ${courseToDelete.code} — ${courseToDelete.title}? This cannot be undone.`
+            : ""
+        }
+        onConfirm={async () => {
+          if (!courseToDelete) return;
+          await api.delete(`/courses/${courseToDelete.id}`);
+          await refetchCourses();
+        }}
+      />
+
+      {/* Department delete */}
+      <ConfirmDialog
+        open={departmentToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setDepartmentToDelete(null);
+        }}
+        title="Delete department"
+        description={
+          departmentToDelete
+            ? `Delete ${departmentToDelete.name} (${departmentToDelete.code})? This cannot be undone.`
+            : ""
+        }
+        onConfirm={async () => {
+          if (!departmentToDelete) return;
+          await api.delete(`/admin/departments/${departmentToDelete.id}`);
+          await fetchDepartments();
+        }}
+      />
     </div>
   );
 }

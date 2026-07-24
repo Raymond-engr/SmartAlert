@@ -18,6 +18,7 @@ export interface AppUser {
   departmentCode: string;
   matricNumber?: string;
   isActive: boolean;
+  notificationPreferences: { inApp: boolean; email: boolean };
 }
 
 export interface Course {
@@ -63,6 +64,7 @@ export interface Department {
   id: string;
   name: string;
   code: string;
+  faculty: string;
   courses: number;
   students: number;
 }

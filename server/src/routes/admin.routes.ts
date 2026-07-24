@@ -28,6 +28,23 @@ const updateUserSchema = z.object({
 
 const idSchema = z.object({ params: z.object({ id: objectId }) });
 
+const createDepartmentSchema = z.object({
+  body: z.object({
+    name: z.string().min(2),
+    code: z.string().min(2),
+    faculty: z.string().min(2),
+  }),
+});
+
+const updateDepartmentSchema = z.object({
+  params: z.object({ id: objectId }),
+  body: z.object({
+    name: z.string().min(2).optional(),
+    code: z.string().min(2).optional(),
+    faculty: z.string().min(2).optional(),
+  }),
+});
+
 // Every route here is admin-only.
 router.use(authenticateToken, authorize(UserRole.ADMIN));
 
@@ -40,5 +57,20 @@ router.patch(
 );
 
 router.get('/departments', adminController.listDepartments);
+router.post(
+  '/departments',
+  validateRequest(createDepartmentSchema),
+  adminController.createDepartment
+);
+router.put(
+  '/departments/:id',
+  validateRequest(updateDepartmentSchema),
+  adminController.updateDepartment
+);
+router.delete(
+  '/departments/:id',
+  validateRequest(idSchema),
+  adminController.deleteDepartment
+);
 
 export default router;
