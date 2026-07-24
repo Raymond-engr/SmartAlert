@@ -20,6 +20,7 @@ const STUDENT: AppUser = {
   departmentCode: "CSC",
   matricNumber: "CSC/2021/001",
   isActive: true,
+  notificationPreferences: { inApp: true, email: true },
 };
 
 async function loadAuth() {

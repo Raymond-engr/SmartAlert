@@ -277,6 +277,10 @@ export interface SerializedUser {
   departmentCode: string;
   matricNumber?: string;
   isActive: boolean;
+  notificationPreferences: {
+    inApp: boolean;
+    email: boolean;
+  };
 }
 
 /**
@@ -314,6 +318,10 @@ export const toUser = (user: IUser | any): SerializedUser => {
     departmentCode: departmentCodeFor(user.department),
     matricNumber: user.matricNumber,
     isActive: user.isActive,
+    notificationPreferences: {
+      inApp: user.notificationPreferences?.inApp ?? true,
+      email: user.notificationPreferences?.email ?? true,
+    },
   };
 };
 

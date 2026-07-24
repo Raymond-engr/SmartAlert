@@ -66,6 +66,10 @@ interface EnrolledStudent {
   _id: Types.ObjectId;
   name: string;
   email: string;
+  notificationPreferences?: {
+    inApp?: boolean;
+    email?: boolean;
+  };
 }
 
 class NotificationService {
@@ -107,7 +111,7 @@ class NotificationService {
     // Every student registered on this course.
     const enrolments = await Enrolment.find({ course: course._id }).populate<{
       student: IUser;
-    }>('student', 'name email isActive');
+    }>('student', 'name email isActive notificationPreferences');
 
     const students: EnrolledStudent[] = enrolments
       .filter((enrolment) => enrolment.student && enrolment.student.isActive)
@@ -115,6 +119,7 @@ class NotificationService {
         _id: enrolment.student._id as Types.ObjectId,
         name: enrolment.student.name,
         email: enrolment.student.email,
+        notificationPreferences: enrolment.student.notificationPreferences,
       }));
 
     const payload: SessionUpdatePayload = {
@@ -131,9 +136,12 @@ class NotificationService {
       createdAt: new Date().toISOString(),
     };
 
-    // Channel 1: in-app, to students who are online right now.
+    // Channel 1: in-app, to students who are online right now and have not
+    // switched the in-app channel off. A missing pref counts as opted in.
     let socketsDelivered = 0;
     students.forEach((student) => {
+      if (student.notificationPreferences?.inApp === false) return;
+
       const delivered = emitToUser(
         String(student._id),
         SESSION_UPDATE_EVENT,
@@ -171,7 +179,13 @@ class NotificationService {
       );
     };
 
-    const results = await Promise.allSettled(students.map(sendOne));
+    // Only students who have not switched the email channel off; a missing
+    // pref counts as opted in.
+    const emailRecipients = students.filter(
+      (student) => student.notificationPreferences?.email !== false
+    );
+
+    const results = await Promise.allSettled(emailRecipients.map(sendOne));
 
     const emailsSent = results.filter((r) => r.status === 'fulfilled').length;
     const emailsFailed = results.length - emailsSent;

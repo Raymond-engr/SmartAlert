@@ -15,13 +15,16 @@ export default function LecturerSettings() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (user) setName(user.name);
+    if (user) {
+      setName(user.name);
+      setEmail(user.notificationPreferences?.email ?? true);
+    }
   }, [user]);
 
   async function handleSave() {
     setSaving(true);
     try {
-      await api.patch("/auth/me", { name });
+      await api.patch("/auth/me", { name, notificationPreferences: { email } });
       await refreshUser();
     } finally {
       setSaving(false);

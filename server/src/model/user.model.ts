@@ -17,6 +17,10 @@ export interface IUser extends Document {
   department: string;
   matricNumber?: string;
   isActive: boolean;
+  notificationPreferences: {
+    inApp: boolean;
+    email: boolean;
+  };
   refreshToken?: string;
   lastLogin?: Date;
   createdAt: Date;
@@ -67,6 +71,20 @@ const UserSchema: Schema<IUser> = new Schema(
       type: Boolean,
       default: true,
       // Admins deactivate rather than delete accounts, so history is preserved.
+    },
+    notificationPreferences: {
+      // Per-channel opt-out for the dual-channel alert pipeline. Both default
+      // to true so a fresh account is reachable on every channel; the
+      // notification service also treats a missing pref as true, so accounts
+      // created before this field existed behave the same.
+      inApp: {
+        type: Boolean,
+        default: true,
+      },
+      email: {
+        type: Boolean,
+        default: true,
+      },
     },
     refreshToken: {
       type: String,

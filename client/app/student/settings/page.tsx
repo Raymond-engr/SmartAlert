@@ -16,13 +16,17 @@ export default function StudentSettings() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (user) setName(user.name);
+    if (user) {
+      setName(user.name);
+      setInApp(user.notificationPreferences?.inApp ?? true);
+      setEmail(user.notificationPreferences?.email ?? true);
+    }
   }, [user]);
 
   async function handleSave() {
     setSaving(true);
     try {
-      await api.patch("/auth/me", { name });
+      await api.patch("/auth/me", { name, notificationPreferences: { inApp, email } });
       await refreshUser();
     } finally {
       setSaving(false);
@@ -133,7 +137,7 @@ export default function StudentSettings() {
           </div>
           <div>
             <Label htmlFor="s-email">University email</Label>
-            <Input id="s-email" defaultValue={user?.email} type="email" />
+            <Input id="s-email" defaultValue={user?.email} type="email" readOnly style={{ background: "oklch(0.955 0.012 83)" }} />
           </div>
           <div>
             <Label htmlFor="s-dept">Department</Label>
