@@ -63,6 +63,7 @@ export interface Department {
   id: string;
   name: string;
   code: string;
+  faculty: string;
   courses: number;
   students: number;
 }

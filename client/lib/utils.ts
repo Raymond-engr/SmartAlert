@@ -6,6 +6,16 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+export function getApiErrorMessage(
+  err: unknown,
+  fallback = "Something went wrong. Please try again."
+): string {
+  return (
+    (err as { response?: { data?: { message?: string } } }).response?.data
+      ?.message ?? fallback
+  );
+}
+
 export function getStatusColor(status: SessionStatus): string {
   switch (status) {
     case "ongoing":
