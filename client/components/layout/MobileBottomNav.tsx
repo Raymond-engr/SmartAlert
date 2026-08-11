@@ -8,6 +8,7 @@ import {
   Bell,
   Settings,
   Calendar,
+  CalendarDays,
   Shield,
 } from "lucide-react";
 import type { AppUser } from "@/types";
@@ -50,6 +51,11 @@ function getMobileNavItems(
           href: "/lecturer/dashboard",
           icon: <Calendar size={17} />,
           label: "SESSIONS",
+        },
+        {
+          href: "/lecturer/schedule",
+          icon: <CalendarDays size={17} />,
+          label: "SCHEDULE",
         },
         {
           href: "/lecturer/notifications",

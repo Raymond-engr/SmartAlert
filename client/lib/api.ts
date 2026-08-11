@@ -49,11 +49,23 @@ api.interceptors.response.use(
   async (error: AxiosError) => {
     const config = error.config as RetriableConfig | undefined;
 
+    // Auth endpoints returning 401 mean "these credentials are wrong" (login/
+    // register) or "there is nothing to refresh" (refresh-token itself) — not
+    // "the access token expired". Retrying those through refreshAccessToken()
+    // would silently swap the real error for the refresh endpoint's own
+    // 401 ("Refresh token is required"), which is what a wrong-password
+    // attempt was showing instead of "Invalid credentials".
+    const isAuthEndpoint = [
+      "/auth/refresh-token",
+      "/auth/login",
+      "/auth/register",
+    ].some((path) => config?.url?.includes(path));
+
     if (
       error.response?.status !== 401 ||
       !config ||
       config._retry ||
-      config.url?.includes("/auth/refresh-token")
+      isAuthEndpoint
     ) {
       return Promise.reject(error);
     }
@@ -68,5 +80,5 @@ api.interceptors.response.use(
       setAccessToken(null);
       return Promise.reject(refreshError);
     }
-  }
+  },
 );

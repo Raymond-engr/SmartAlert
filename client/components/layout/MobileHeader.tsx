@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Bell } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Bell, LogOut } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 import type { AppUser } from "@/types";
 
 interface MobileHeaderProps {
@@ -15,6 +17,14 @@ export function MobileHeader({
   alertCount,
   greeting = "GOOD MORNING",
 }: MobileHeaderProps) {
+  const router = useRouter();
+  const { logout } = useAuth();
+
+  async function handleSignOut() {
+    await logout();
+    router.replace("/login");
+  }
+
   return (
     <header
       style={{
@@ -72,46 +82,69 @@ export function MobileHeader({
         </div>
       </div>
 
-      <Link
-        href={`/${user.role}/notifications`}
-        style={{
-          position: "relative",
-          width: 38,
-          height: 38,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          border: "1px solid oklch(0.86 0.014 78)",
-          borderRadius: 3,
-          background: "transparent",
-          color: "oklch(0.46 0.012 55)",
-          textDecoration: "none",
-          flexShrink: 0,
-        }}
-      >
-        <Bell size={17} />
-        {alertCount ? (
-          <span
-            style={{
-              position: "absolute",
-              top: -4,
-              right: -4,
-              fontFamily: "var(--font-ibm-plex-mono), monospace",
-              fontSize: 9,
-              fontWeight: 600,
-              background: "oklch(0.55 0.2 27)",
-              color: "oklch(0.98 0.01 83)",
-              borderRadius: 2,
-              padding: "0 4px",
-              lineHeight: "16px",
-              minWidth: 16,
-              textAlign: "center",
-            }}
-          >
-            {alertCount}
-          </span>
-        ) : null}
-      </Link>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+        <Link
+          href={`/${user.role}/notifications`}
+          style={{
+            position: "relative",
+            width: 38,
+            height: 38,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            border: "1px solid oklch(0.86 0.014 78)",
+            borderRadius: 3,
+            background: "transparent",
+            color: "oklch(0.46 0.012 55)",
+            textDecoration: "none",
+            flexShrink: 0,
+          }}
+        >
+          <Bell size={17} />
+          {alertCount ? (
+            <span
+              style={{
+                position: "absolute",
+                top: -4,
+                right: -4,
+                fontFamily: "var(--font-ibm-plex-mono), monospace",
+                fontSize: 9,
+                fontWeight: 600,
+                background: "oklch(0.55 0.2 27)",
+                color: "oklch(0.98 0.01 83)",
+                borderRadius: 2,
+                padding: "0 4px",
+                lineHeight: "16px",
+                minWidth: 16,
+                textAlign: "center",
+              }}
+            >
+              {alertCount}
+            </span>
+          ) : null}
+        </Link>
+
+        <button
+          type="button"
+          onClick={handleSignOut}
+          aria-label="Sign out"
+          style={{
+            width: 38,
+            height: 38,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            border: "1px solid oklch(0.86 0.014 78)",
+            borderRadius: 3,
+            background: "transparent",
+            color: "oklch(0.46 0.012 55)",
+            cursor: "pointer",
+            flexShrink: 0,
+          }}
+        >
+          <LogOut size={16} />
+        </button>
+      </div>
     </header>
   );
 }
