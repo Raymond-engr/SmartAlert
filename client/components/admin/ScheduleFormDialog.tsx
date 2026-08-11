@@ -19,12 +19,12 @@ import { getApiErrorMessage } from "@/lib/utils";
 import type { Course, Session } from "@/types";
 
 const DAYS = [
-  "MONDAY",
-  "TUESDAY",
-  "WEDNESDAY",
-  "THURSDAY",
-  "FRIDAY",
-  "SATURDAY",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
 ];
 
 interface Props {
@@ -46,7 +46,7 @@ export function ScheduleFormDialog({
 }: Props) {
   const isEdit = Boolean(session);
   const [course, setCourse] = useState("");
-  const [day, setDay] = useState("MONDAY");
+  const [day, setDay] = useState("Monday");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [venue, setVenue] = useState("");
@@ -58,7 +58,7 @@ export function ScheduleFormDialog({
     if (!open) return;
     setError(null);
     setCourse(session?.courseId ?? "");
-    setDay(session?.day ?? "MONDAY");
+    setDay(session?.day ?? "Monday");
     setStartTime(session?.startTime ?? "");
     setEndTime(session?.endTime ?? "");
     setVenue(session?.venue ?? "");

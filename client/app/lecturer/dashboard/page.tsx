@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import type { Session } from "@/types";
 
-const DAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 interface RescheduleForm {
   day: string;
@@ -36,7 +36,7 @@ export default function LecturerDashboard() {
 
   const [rescheduleTarget, setRescheduleTarget] = useState<Session | null>(null);
   const [rescheduleForm, setRescheduleForm] = useState<RescheduleForm>({
-    day: "MONDAY",
+    day: "Monday",
     startTime: "",
     endTime: "",
     venue: "",
