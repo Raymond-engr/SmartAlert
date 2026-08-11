@@ -6,7 +6,10 @@ import {
   ITimetableSession,
 } from '../Timetable/models/timetableSession.model';
 import { ICourse } from '../Timetable/models/course.model';
-import { INotification, NotificationType } from '../Notifications/models/notification.model';
+import {
+  INotification,
+  NotificationType,
+} from '../Notifications/models/notification.model';
 import { IUser } from '../model/user.model';
 import { getDepartmentDirectory } from './departments';
 
@@ -58,33 +61,44 @@ const dayIndex = (day: string): number => WEEK_DAYS.indexOf(day as WeekDay);
  * persisting that would need a scheduler whose only job is to race the
  * timetable. They are derived on read instead.
  *
- * `cancelled` and `rescheduled` are the opposite: they are deliberate lecturer
- * actions, so they are stored and always win over whatever the clock says.
+ * `cancelled` is different: it is a deliberate, permanent lecturer action, so
+ * it is stored and always wins over whatever the clock says.
+ *
+ * `rescheduled` is a deliberate action too, but not a permanent one — it's a
+ * flag that this session's day/time/venue changed, layered on top of the
+ * same weekly lifecycle every other session has. A moved class still needs
+ * to go live and finish on its *new* time, so it only overrides the clock
+ * while that new time is still in the future; once it starts, the ongoing/
+ * completed derivation below takes over exactly as it would for a session
+ * that was never moved.
  */
 export const effectiveStatus = (
   session: Pick<ITimetableSession, 'day' | 'startTime' | 'endTime' | 'status'>,
   at: Date = new Date()
 ): SessionStatus => {
-  if (
-    session.status === SessionStatus.CANCELLED ||
-    session.status === SessionStatus.RESCHEDULED
-  ) {
+  if (session.status === SessionStatus.CANCELLED) {
     return session.status;
   }
+
+  const wasRescheduled = session.status === SessionStatus.RESCHEDULED;
+  // Falls back to this if the session's new time hasn't arrived yet.
+  const upcomingStatus = wasRescheduled
+    ? SessionStatus.RESCHEDULED
+    : SessionStatus.SCHEDULED;
 
   const now = campusNow(at);
   const todayIndex = dayIndex(now.day);
 
   // Sunday is not a teaching day, so nothing has started yet: the whole of the
-  // coming week reads as scheduled.
-  if (todayIndex === -1) return SessionStatus.SCHEDULED;
+  // coming week reads as scheduled (or, if moved, still flagged as moved).
+  if (todayIndex === -1) return upcomingStatus;
 
   const sessionIndex = dayIndex(session.day);
   if (sessionIndex < todayIndex) return SessionStatus.COMPLETED;
-  if (sessionIndex > todayIndex) return SessionStatus.SCHEDULED;
+  if (sessionIndex > todayIndex) return upcomingStatus;
 
   // Today. Zero-padded 'HH:mm' compares correctly as a string.
-  if (now.time < session.startTime) return SessionStatus.SCHEDULED;
+  if (now.time < session.startTime) return upcomingStatus;
   if (now.time < session.endTime) return SessionStatus.ONGOING;
   return SessionStatus.COMPLETED;
 };
@@ -298,7 +312,10 @@ const departmentCodeFor = (department: string): string =>
  * keeps that logic out of each page.
  */
 export const toUser = (user: IUser | any): SerializedUser => {
-  const parts = String(user.name ?? '').trim().split(/\s+/).filter(Boolean);
+  const parts = String(user.name ?? '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
 
   const initials =
     parts.length === 0

@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { UnauthorizedError, ForbiddenError } from '../utils/customErrors';
+import { UnauthorizedError, ForbiddenError, RateLimitError } from '../utils/customErrors';
 import tokenService from '../services/token.service';
 import User, { UserRole } from '../model/user.model';
 
@@ -95,27 +95,33 @@ const authenticateStudentToken = [
 const rateLimiter = (limit: number, windowMs: number) => {
   const requests = new Map<string, number[]>();
 
+  // Proactively prune IPs whose entire history has expired, preventing
+  // the Map from growing without bound over the lifetime of the process.
+  const pruneInterval = setInterval(() => {
+    const now = Date.now();
+    for (const [ip, timestamps] of requests) {
+      if (timestamps.every((t) => now - t >= windowMs)) {
+        requests.delete(ip);
+      }
+    }
+  }, 10 * 60 * 1000); // run every 10 minutes
+
+  // Allow Node to exit even if this interval is still active.
+  if (pruneInterval.unref) pruneInterval.unref();
+
   return (req: Request, res: Response, next: NextFunction) => {
     try {
       const ip = req.ip as string;
       const now = Date.now();
 
-      // Clean old requests
-      if (requests.has(ip)) {
-        const userRequests = requests.get(ip) || [];
-        const validRequests = userRequests.filter(
-          (timestamp) => now - timestamp < windowMs
-        );
+      const previous = requests.get(ip) ?? [];
+      const validRequests = previous.filter((t) => now - t < windowMs);
 
-        if (validRequests.length >= limit) {
-          throw new UnauthorizedError('Rate limit exceeded');
-        }
-
-        requests.set(ip, [...validRequests, now]);
-      } else {
-        requests.set(ip, [now]);
+      if (validRequests.length >= limit) {
+        throw new RateLimitError('Too many requests, please try again later.');
       }
 
+      requests.set(ip, [...validRequests, now]);
       next();
     } catch (error) {
       next(error);
