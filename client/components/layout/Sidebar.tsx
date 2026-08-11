@@ -8,6 +8,7 @@ import {
   Bell,
   Settings,
   Calendar,
+  CalendarDays,
   Shield,
   LogOut,
 } from "lucide-react";
@@ -50,6 +51,11 @@ function getNavItems(user: AppUser, alertCount?: number): NavItem[] {
           href: "/lecturer/dashboard",
           icon: <Calendar size={15} />,
           label: "Sessions",
+        },
+        {
+          href: "/lecturer/schedule",
+          icon: <CalendarDays size={15} />,
+          label: "Schedule",
         },
         {
           href: "/lecturer/notifications",

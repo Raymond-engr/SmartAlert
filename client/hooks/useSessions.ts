@@ -5,7 +5,14 @@ import { api, getAccessToken } from "@/lib/api";
 import { getSocket } from "@/lib/socket";
 import type { Session } from "@/types";
 
-export function useSessions() {
+interface UseSessionsOptions {
+  /** "all" lifts a lecturer's normal scoping to the full campus schedule
+   *  (read-only — see the /sessions controller). Ignored for other roles. */
+  scope?: "own" | "all";
+}
+
+export function useSessions(options: UseSessionsOptions = {}) {
+  const { scope = "own" } = options;
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -14,7 +21,8 @@ export function useSessions() {
     setLoading(true);
     try {
       const res = await api.get<{ success: boolean; data: Session[] }>(
-        "/sessions"
+        "/sessions",
+        { params: scope === "all" ? { scope: "all" } : undefined },
       );
       setSessions(res.data.data);
       setError(null);
@@ -23,7 +31,7 @@ export function useSessions() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [scope]);
 
   useEffect(() => {
     refetch();

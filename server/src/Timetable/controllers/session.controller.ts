@@ -22,12 +22,22 @@ class SessionController {
    * Scoped listing (Section 8, API spec): a lecturer sees only sessions on
    * courses they teach, a student sees only sessions on courses they are
    * enrolled in, and an admin sees the full master schedule.
+   *
+   * `?scope=all` lifts that scoping for a lecturer, so they can read the full
+   * campus timetable (read-only — `toSession`'s ownership check still means
+   * `canAct` is only true on their own sessions) to find a free slot before
+   * rescheduling. Students stay scoped either way: unlike a lecturer picking
+   * a new time, nothing in their flow needs the wider view.
    */
   list = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const user = req.user!;
+    const wantsFullSchedule =
+      req.query.scope === 'all' &&
+      (user.role === UserRole.LECTURER || user.role === UserRole.ADMIN);
+
     let courseIds: Types.ObjectId[] | undefined;
 
-    if (user.role === UserRole.LECTURER) {
+    if (user.role === UserRole.LECTURER && !wantsFullSchedule) {
       const courses = await Course.find({ lecturer: user._id }).select('_id');
       courseIds = courses.map((c) => c._id as Types.ObjectId);
     } else if (user.role === UserRole.STUDENT) {
@@ -36,7 +46,8 @@ class SessionController {
       );
       courseIds = enrolments.map((e) => e.course as Types.ObjectId);
     }
-    // Admin: courseIds stays undefined, so no course filter is applied.
+    // Admin, or a lecturer with scope=all: courseIds stays undefined, so no
+    // course filter is applied.
 
     const filter: Record<string, unknown> = {};
     if (courseIds) filter.course = { $in: courseIds };
@@ -63,7 +74,9 @@ class SessionController {
       throw new NotFoundError('Session not found');
     }
 
-    res.status(200).json({ success: true, data: toSession(session, req.user!) });
+    res
+      .status(200)
+      .json({ success: true, data: toSession(session, req.user!) });
   });
 
   /**
@@ -89,7 +102,9 @@ class SessionController {
       venue,
     });
 
-    logger.info(`Session added to schedule: ${courseDoc.code} ${day} ${startTime}`);
+    logger.info(
+      `Session added to schedule: ${courseDoc.code} ${day} ${startTime}`
+    );
 
     res.status(201).json({ success: true, data: session });
   });
@@ -135,9 +150,8 @@ class SessionController {
     sessionId: string,
     lecturerId: Types.ObjectId
   ) {
-    const session = await TimetableSession.findById(sessionId).populate(
-      'course'
-    );
+    const session =
+      await TimetableSession.findById(sessionId).populate('course');
 
     if (!session) {
       throw new NotFoundError('Session not found');
@@ -184,7 +198,10 @@ class SessionController {
         // ownership check can compare ids; the check having passed, the
         // acting user is that lecturer, so they can be attached directly.
         session: toSession(
-          { ...session.toObject(), course: { ...course.toObject(), lecturer: user } },
+          {
+            ...session.toObject(),
+            course: { ...course.toObject(), lecturer: user },
+          },
           user
         ),
         recipientCount: result.recipientCount,
@@ -236,12 +253,15 @@ class SessionController {
         message: 'Session rescheduled and students notified',
         data: {
           // `course.lecturer` is left as a raw id by loadOwnedSession so the
-        // ownership check can compare ids; the check having passed, the
-        // acting user is that lecturer, so they can be attached directly.
-        session: toSession(
-          { ...session.toObject(), course: { ...course.toObject(), lecturer: user } },
-          user
-        ),
+          // ownership check can compare ids; the check having passed, the
+          // acting user is that lecturer, so they can be attached directly.
+          session: toSession(
+            {
+              ...session.toObject(),
+              course: { ...course.toObject(), lecturer: user },
+            },
+            user
+          ),
           recipientCount: result.recipientCount,
           socketsDelivered: result.socketsDelivered,
           emailsSent: result.emailsSent,
