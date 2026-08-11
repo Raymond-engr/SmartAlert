@@ -8,11 +8,12 @@ import { StatusChip } from "@/components/StatusChip";
 import { CourseFormDialog } from "@/components/admin/CourseFormDialog";
 import { DepartmentFormDialog } from "@/components/admin/DepartmentFormDialog";
 import { UserFormDialog } from "@/components/admin/UserFormDialog";
+import { ScheduleFormDialog } from "@/components/admin/ScheduleFormDialog";
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import { api } from "@/lib/api";
 import { useSessions } from "@/hooks/useSessions";
 import { useCourses } from "@/hooks/useCourses";
-import type { AppUser, Course, Department } from "@/types";
+import type { AppUser, Course, Department, Session } from "@/types";
 
 interface DepartmentRef {
   id: string;
@@ -55,7 +56,7 @@ const TABLE: React.CSSProperties = {
 };
 
 export default function AdminDashboard() {
-  const { sessions } = useSessions();
+  const { sessions, refetch: refetchSessions } = useSessions();
   const { courses, refetch: refetchCourses } = useCourses();
   const [users, setUsers] = useState<AppUser[]>([]);
   const [departmentRefs, setDepartmentRefs] = useState<DepartmentRef[]>([]);
@@ -74,8 +75,13 @@ export default function AdminDashboard() {
     open: false,
     user: null,
   });
+  const [scheduleDialog, setScheduleDialog] = useState<{ open: boolean; session: Session | null }>({
+    open: false,
+    session: null,
+  });
   const [courseToDelete, setCourseToDelete] = useState<Course | null>(null);
   const [departmentToDelete, setDepartmentToDelete] = useState<Department | null>(null);
+  const [sessionToDelete, setSessionToDelete] = useState<Session | null>(null);
 
   const fetchUsers = useCallback(async () => {
     const res = await api.get<{ success: boolean; data: AppUser[] }>("/admin/users");
@@ -134,15 +140,15 @@ export default function AdminDashboard() {
             University of Benin · Computer Science
           </p>
         </div>
-        {(tab === "courses" || tab === "departments") && (
+        {(tab === "courses" || tab === "departments" || tab === "schedule") && (
           <Button
             variant="primary"
             size="default"
-            onClick={() =>
-              tab === "courses"
-                ? setCourseDialog({ open: true, course: null })
-                : setDepartmentDialog({ open: true, department: null })
-            }
+            onClick={() => {
+              if (tab === "courses") setCourseDialog({ open: true, course: null });
+              else if (tab === "departments") setDepartmentDialog({ open: true, department: null });
+              else setScheduleDialog({ open: true, session: null });
+            }}
           >
             <Plus size={14} /> Add new
           </Button>
@@ -310,7 +316,7 @@ export default function AdminDashboard() {
         {/* Master Schedule */}
         <TabsContent value="schedule">
           <div style={{ background: "oklch(0.99 0.007 83)", border: "1px solid oklch(0.86 0.014 78)", borderRadius: "0 0 5px 5px", overflowX: "auto" }}>
-            <table style={{ ...TABLE, minWidth: 820 }}>
+            <table style={{ ...TABLE, minWidth: 900 }}>
               <thead>
                 <tr>
                   <th style={TH}>Code</th>
@@ -319,6 +325,7 @@ export default function AdminDashboard() {
                   <th style={TH}>Time</th>
                   <th style={TH}>Venue</th>
                   <th style={TH}>Status</th>
+                  <th style={TH}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -330,6 +337,22 @@ export default function AdminDashboard() {
                     <td style={TD}><span style={{ fontFamily: "var(--font-ibm-plex-mono), monospace", fontSize: 12 }}>{s.startTime}–{s.endTime}</span></td>
                     <td style={TD}><span style={{ fontFamily: "var(--font-ibm-plex-mono), monospace", fontSize: 12 }}>{s.venue}</span></td>
                     <td style={TD}><StatusChip status={s.status} /></td>
+                    <td style={TD}>
+                      <div style={{ display: "flex", gap: 12 }}>
+                        <button
+                          onClick={() => setScheduleDialog({ open: true, session: s })}
+                          style={{ fontFamily: "var(--font-ibm-plex-mono), monospace", fontSize: 12, background: "none", border: "none", color: "oklch(0.55 0.16 41)", cursor: "pointer", padding: 0 }}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => setSessionToDelete(s)}
+                          style={{ fontFamily: "var(--font-ibm-plex-mono), monospace", fontSize: 12, background: "none", border: "none", color: "oklch(0.53 0.2 27)", cursor: "pointer", padding: 0 }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -362,6 +385,15 @@ export default function AdminDashboard() {
         departments={deptOptions}
         user={userDialog.user}
         onSaved={fetchUsers}
+      />
+
+      {/* Schedule add/edit */}
+      <ScheduleFormDialog
+        open={scheduleDialog.open}
+        onOpenChange={(open) => setScheduleDialog((s) => ({ ...s, open }))}
+        courses={courses}
+        session={scheduleDialog.session}
+        onSaved={refetchSessions}
       />
 
       {/* Course delete */}
@@ -399,6 +431,25 @@ export default function AdminDashboard() {
           if (!departmentToDelete) return;
           await api.delete(`/admin/departments/${departmentToDelete.id}`);
           await fetchDepartments();
+        }}
+      />
+
+      {/* Schedule entry delete */}
+      <ConfirmDialog
+        open={sessionToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setSessionToDelete(null);
+        }}
+        title="Remove from schedule"
+        description={
+          sessionToDelete
+            ? `Remove ${sessionToDelete.courseCode} on ${sessionToDelete.day} (${sessionToDelete.startTime}–${sessionToDelete.endTime})? This cannot be undone.`
+            : ""
+        }
+        onConfirm={async () => {
+          if (!sessionToDelete) return;
+          await api.delete(`/sessions/${sessionToDelete.id}`);
+          await refetchSessions();
         }}
       />
     </div>
